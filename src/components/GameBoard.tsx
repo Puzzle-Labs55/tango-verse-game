@@ -16,6 +16,7 @@ export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
+  const [isPuzzleSolved, setIsPuzzleSolved] = useState(false);
 
   useEffect(() => {
     initializeBoard();
@@ -28,6 +29,7 @@ export const GameBoard = () => {
       rotation: Math.floor(Math.random() * 4) * 90,
     }));
     setBlocks(newBlocks);
+    setIsPuzzleSolved(false);
   };
 
   const handleBlockClick = (id: number) => {
@@ -56,19 +58,20 @@ export const GameBoard = () => {
     if (hasMatch) {
       const points = 100 * level;
       setScore((prev) => prev + points);
+      setIsPuzzleSolved(true);
       toast({
         title: "Pattern matched!",
         description: `You earned ${points} points!`,
       });
-
-      if (score > level * 1000) {
-        setLevel((prev) => prev + 1);
-        toast({
-          title: "Level up!",
-          description: `Welcome to level ${level + 1}`,
-        });
-      }
     }
+  };
+
+  const handleNextLevel = () => {
+    setLevel((prev) => prev + 1);
+    toast({
+      title: "Level up!",
+      description: `Welcome to level ${level + 1}`,
+    });
   };
 
   return (
@@ -96,12 +99,24 @@ export const GameBoard = () => {
         ))}
       </motion.div>
 
-      <button
-        onClick={initializeBoard}
-        className="mt-8 px-6 py-2 bg-game-primary text-white rounded-full hover:bg-game-secondary transition-colors duration-300 shadow-md"
-      >
-        Reset Board
-      </button>
+      <div className="mt-8 space-x-4">
+        {isPuzzleSolved && (
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="px-6 py-2 bg-game-secondary text-white rounded-full hover:bg-game-primary transition-colors duration-300 shadow-md"
+            onClick={handleNextLevel}
+          >
+            Next Level →
+          </motion.button>
+        )}
+        <button
+          onClick={initializeBoard}
+          className="px-6 py-2 bg-game-primary text-white rounded-full hover:bg-game-secondary transition-colors duration-300 shadow-md"
+        >
+          Reset Board
+        </button>
+      </div>
     </div>
   );
 };
