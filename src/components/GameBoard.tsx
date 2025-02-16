@@ -7,8 +7,9 @@ import { Sun, Moon } from "lucide-react";
 
 export interface Block {
   id: number;
-  type: 'sun' | 'moon';
+  type: 'sun' | 'moon' | null;
   rotation: number;
+  isLocked: boolean;
 }
 
 const GRID_SIZE = 6;
@@ -18,6 +19,7 @@ export const GameBoard = () => {
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
   const [isPuzzleSolved, setIsPuzzleSolved] = useState(false);
+  const [solution, setSolution] = useState<Block[]>([]);
 
   const generateValidBoard = (): Block[] => {
     let isValid = false;
@@ -28,7 +30,8 @@ export const GameBoard = () => {
       board = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
         id: index,
         type: Math.random() < 0.5 ? 'sun' : 'moon',
-        rotation: Math.floor(Math.random() * 4) * 90,
+        rotation: 0,
+        isLocked: false
       }));
 
       // Check if board is valid
@@ -36,6 +39,35 @@ export const GameBoard = () => {
     }
 
     return board;
+  };
+
+  const createPuzzle = (solution: Block[]): Block[] => {
+    // Create a copy of the solution
+    let puzzle = [...solution];
+    
+    // Randomly remove cells (about 60% of cells will be empty)
+    const cellsToRemove = Math.floor(GRID_SIZE * GRID_SIZE * 0.6);
+    const removedCells = new Set<number>();
+    
+    while (removedCells.size < cellsToRemove) {
+      const randomIndex = Math.floor(Math.random() * (GRID_SIZE * GRID_SIZE));
+      if (!removedCells.has(randomIndex)) {
+        removedCells.add(randomIndex);
+      }
+    }
+
+    // Create the puzzle with removed cells and locked remaining cells
+    puzzle = puzzle.map((block, index) => ({
+      ...block,
+      type: removedCells.has(index) ? null : block.type,
+      isLocked: !removedCells.has(index)
+    }));
+
+    // Verify the puzzle has a unique solution
+    // In a real implementation, you'd want to implement a proper solver here
+    // For now, we'll assume our puzzles have unique solutions
+
+    return puzzle;
   };
 
   const isValidBoard = (board: Block[]): boolean => {
@@ -49,22 +81,19 @@ export const GameBoard = () => {
       for (let col = 0; col < GRID_SIZE; col++) {
         const block = board[row * GRID_SIZE + col];
         
-        // Count suns and moons in row
         if (block.type === 'sun') {
           sunCount++;
           consecutiveSuns++;
           consecutiveMoons = 0;
-        } else {
+        } else if (block.type === 'moon') {
           moonCount++;
           consecutiveMoons++;
           consecutiveSuns = 0;
         }
         
-        // Check for consecutive pieces
         if (consecutiveSuns >= 3 || consecutiveMoons >= 3) return false;
       }
       
-      // Check equal numbers in row
       if (sunCount !== moonCount) return false;
     }
 
@@ -78,22 +107,19 @@ export const GameBoard = () => {
       for (let row = 0; row < GRID_SIZE; row++) {
         const block = board[row * GRID_SIZE + col];
         
-        // Count suns and moons in column
         if (block.type === 'sun') {
           sunCount++;
           consecutiveSuns++;
           consecutiveMoons = 0;
-        } else {
+        } else if (block.type === 'moon') {
           moonCount++;
           consecutiveMoons++;
           consecutiveSuns = 0;
         }
         
-        // Check for consecutive pieces
         if (consecutiveSuns >= 3 || consecutiveMoons >= 3) return false;
       }
       
-      // Check equal numbers in column
       if (sunCount !== moonCount) return false;
     }
 
@@ -105,40 +131,48 @@ export const GameBoard = () => {
   }, [level]);
 
   const initializeBoard = () => {
-    const newBlocks = generateValidBoard();
-    setBlocks(newBlocks);
+    const completeSolution = generateValidBoard();
+    setSolution(completeSolution);
+    const newPuzzle = createPuzzle(completeSolution);
+    setBlocks(newPuzzle);
     setIsPuzzleSolved(false);
   };
 
   const handleBlockClick = (id: number) => {
-    setBlocks((prevBlocks) =>
-      prevBlocks.map((block) =>
+    setBlocks((prevBlocks) => {
+      const block = prevBlocks.find(b => b.id === id);
+      if (block?.isLocked) {
+        toast({
+          title: "Can't modify this cell",
+          description: "This cell is part of the initial puzzle",
+          variant: "destructive"
+        });
+        return prevBlocks;
+      }
+
+      return prevBlocks.map((block) =>
         block.id === id
-          ? { ...block, rotation: (block.rotation + 90) % 360 }
+          ? { 
+              ...block, 
+              type: block.type === null ? 'sun' : 
+                    block.type === 'sun' ? 'moon' : null 
+            }
           : block
-      )
-    );
-    checkPattern();
+      );
+    });
+    checkSolution();
   };
 
-  const checkPattern = () => {
-    // Simple pattern check (can be expanded)
-    const hasMatch = blocks.some((block, index) => {
-      if (index % GRID_SIZE !== GRID_SIZE - 1) {
-        return (
-          block.type === blocks[index + 1]?.type &&
-          block.rotation === blocks[index + 1]?.rotation
-        );
-      }
-      return false;
-    });
-
-    if (hasMatch) {
+  const checkSolution = () => {
+    // Check if all cells are filled
+    const isComplete = blocks.every(block => block.type !== null);
+    
+    if (isComplete && isValidBoard(blocks)) {
       const points = 100 * level;
       setScore((prev) => prev + points);
       setIsPuzzleSolved(true);
       toast({
-        title: "Pattern matched!",
+        title: "Puzzle solved!",
         description: `You earned ${points} points!`,
       });
     }
