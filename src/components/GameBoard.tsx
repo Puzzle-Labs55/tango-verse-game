@@ -3,14 +3,15 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
 import { toast } from "@/components/ui/use-toast";
+import { Sun, Moon } from "lucide-react";
 
 export interface Block {
   id: number;
-  color: string;
+  type: 'sun' | 'moon';
   rotation: number;
 }
 
-const COLORS = ["#9b87f5", "#7E69AB", "#D6BCFA", "#F1F0FB"];
+const GRID_SIZE = 6;
 
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -18,16 +19,93 @@ export const GameBoard = () => {
   const [level, setLevel] = useState(1);
   const [isPuzzleSolved, setIsPuzzleSolved] = useState(false);
 
+  const generateValidBoard = (): Block[] => {
+    let isValid = false;
+    let board: Block[] = [];
+
+    while (!isValid) {
+      // Initialize board with random suns and moons
+      board = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
+        id: index,
+        type: Math.random() < 0.5 ? 'sun' : 'moon',
+        rotation: Math.floor(Math.random() * 4) * 90,
+      }));
+
+      // Check if board is valid
+      isValid = isValidBoard(board);
+    }
+
+    return board;
+  };
+
+  const isValidBoard = (board: Block[]): boolean => {
+    // Check rows
+    for (let row = 0; row < GRID_SIZE; row++) {
+      let sunCount = 0;
+      let moonCount = 0;
+      let consecutiveSuns = 0;
+      let consecutiveMoons = 0;
+      
+      for (let col = 0; col < GRID_SIZE; col++) {
+        const block = board[row * GRID_SIZE + col];
+        
+        // Count suns and moons in row
+        if (block.type === 'sun') {
+          sunCount++;
+          consecutiveSuns++;
+          consecutiveMoons = 0;
+        } else {
+          moonCount++;
+          consecutiveMoons++;
+          consecutiveSuns = 0;
+        }
+        
+        // Check for consecutive pieces
+        if (consecutiveSuns >= 3 || consecutiveMoons >= 3) return false;
+      }
+      
+      // Check equal numbers in row
+      if (sunCount !== moonCount) return false;
+    }
+
+    // Check columns
+    for (let col = 0; col < GRID_SIZE; col++) {
+      let sunCount = 0;
+      let moonCount = 0;
+      let consecutiveSuns = 0;
+      let consecutiveMoons = 0;
+      
+      for (let row = 0; row < GRID_SIZE; row++) {
+        const block = board[row * GRID_SIZE + col];
+        
+        // Count suns and moons in column
+        if (block.type === 'sun') {
+          sunCount++;
+          consecutiveSuns++;
+          consecutiveMoons = 0;
+        } else {
+          moonCount++;
+          consecutiveMoons++;
+          consecutiveSuns = 0;
+        }
+        
+        // Check for consecutive pieces
+        if (consecutiveSuns >= 3 || consecutiveMoons >= 3) return false;
+      }
+      
+      // Check equal numbers in column
+      if (sunCount !== moonCount) return false;
+    }
+
+    return true;
+  };
+
   useEffect(() => {
     initializeBoard();
   }, [level]);
 
   const initializeBoard = () => {
-    const newBlocks: Block[] = Array.from({ length: 16 }, (_, index) => ({
-      id: index,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      rotation: Math.floor(Math.random() * 4) * 90,
-    }));
+    const newBlocks = generateValidBoard();
     setBlocks(newBlocks);
     setIsPuzzleSolved(false);
   };
@@ -46,9 +124,9 @@ export const GameBoard = () => {
   const checkPattern = () => {
     // Simple pattern check (can be expanded)
     const hasMatch = blocks.some((block, index) => {
-      if (index % 4 !== 3) {
+      if (index % GRID_SIZE !== GRID_SIZE - 1) {
         return (
-          block.color === blocks[index + 1]?.color &&
+          block.type === blocks[index + 1]?.type &&
           block.rotation === blocks[index + 1]?.rotation
         );
       }
@@ -80,12 +158,12 @@ export const GameBoard = () => {
         <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-primary/10 text-game-primary mb-2">
           Level {level}
         </div>
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">Tango Puzzle</h1>
+        <h1 className="text-4xl font-bold text-gray-800 mb-2">Sun & Moon Puzzle</h1>
         <p className="text-lg text-gray-600">Score: {score}</p>
       </div>
 
       <motion.div
-        className="grid grid-cols-4 gap-2 bg-white p-4 rounded-lg shadow-lg"
+        className="grid grid-cols-6 gap-2 bg-white p-4 rounded-lg shadow-lg"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
