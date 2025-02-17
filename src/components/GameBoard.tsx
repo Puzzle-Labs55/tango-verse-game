@@ -17,13 +17,22 @@ interface Move {
   previousType: 'sun' | 'moon' | null;
 }
 
+type Difficulty = 'easy' | 'medium' | 'hard';
+
 const GRID_SIZE = 6;
 const HINT_COOLDOWN = 20; // seconds
+
+const DIFFICULTY_SETTINGS = {
+  easy: { cellsToRemove: 0.4, maxConsecutive: 2 },
+  medium: { cellsToRemove: 0.5, maxConsecutive: 3 },
+  hard: { cellsToRemove: 0.6, maxConsecutive: 3 }
+};
 
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
+  const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [isPuzzleSolved, setIsPuzzleSolved] = useState(false);
   const [solution, setSolution] = useState<Block[]>([]);
   const [timer, setTimer] = useState(0);
@@ -72,8 +81,11 @@ export const GameBoard = () => {
   const generateValidBoard = (): Block[] => {
     let isValid = false;
     let board: Block[] = [];
+    let attempts = 0;
+    const maxAttempts = 1000;
 
-    while (!isValid) {
+    while (!isValid && attempts < maxAttempts) {
+      attempts++;
       board = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
         id: index,
         type: Math.random() < 0.5 ? 'sun' : 'moon',
@@ -82,21 +94,81 @@ export const GameBoard = () => {
         isHint: false
       }));
 
-      isValid = isValidBoard(board);
+      // Check if board is valid and has a unique solution
+      isValid = isValidBoard(board) && hasUniqueSolution(board);
+    }
+
+    if (!isValid) {
+      // If we couldn't generate a valid board, use a predefined one
+      board = generatePredefinedBoard();
     }
 
     return board;
   };
 
+  const hasUniqueSolution = (board: Block[]): boolean => {
+    // Count empty cells and their possible values
+    let emptyCells = 0;
+    let constrainedCells = 0;
+
+    // Check rows and columns for constraints
+    for (let i = 0; i < GRID_SIZE; i++) {
+      // Check rows
+      const rowSuns = board.slice(i * GRID_SIZE, (i + 1) * GRID_SIZE).filter(b => b.type === 'sun').length;
+      const rowMoons = board.slice(i * GRID_SIZE, (i + 1) * GRID_SIZE).filter(b => b.type === 'moon').length;
+      
+      if (rowSuns > GRID_SIZE / 2 || rowMoons > GRID_SIZE / 2) return false;
+      if (rowSuns === GRID_SIZE / 2) constrainedCells += GRID_SIZE - rowSuns - rowMoons;
+      if (rowMoons === GRID_SIZE / 2) constrainedCells += GRID_SIZE - rowSuns - rowMoons;
+
+      // Check columns
+      const colSuns = board.filter((b, index) => index % GRID_SIZE === i && b.type === 'sun').length;
+      const colMoons = board.filter((b, index) => index % GRID_SIZE === i && b.type === 'moon').length;
+      
+      if (colSuns > GRID_SIZE / 2 || colMoons > GRID_SIZE / 2) return false;
+      if (colSuns === GRID_SIZE / 2) constrainedCells += GRID_SIZE - colSuns - colMoons;
+      if (colMoons === GRID_SIZE / 2) constrainedCells += GRID_SIZE - colSuns - colMoons;
+    }
+
+    // Count empty cells
+    emptyCells = board.filter(b => b.type === null).length;
+
+    // If all empty cells are constrained, solution is unique
+    return constrainedCells >= emptyCells;
+  };
+
+  const generatePredefinedBoard = (): Block[] => {
+    // A predefined valid board with a unique solution
+    return Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
+      id: index,
+      type: [
+        'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
+        'moon', 'sun', 'moon', 'sun', 'moon', 'sun',
+        'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
+        'moon', 'sun', 'moon', 'sun', 'moon', 'sun',
+        'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
+        'moon', 'sun', 'moon', 'sun', 'moon', 'sun'
+      ][index] as 'sun' | 'moon',
+      rotation: 0,
+      isLocked: false,
+      isHint: false
+    }));
+  };
+
   const createPuzzle = (solution: Block[]): Block[] => {
     let puzzle = [...solution];
-    
-    const cellsToRemove = Math.floor(GRID_SIZE * GRID_SIZE * 0.6);
+    const settings = DIFFICULTY_SETTINGS[difficulty];
+    const cellsToRemove = Math.floor(GRID_SIZE * GRID_SIZE * settings.cellsToRemove);
     const removedCells = new Set<number>();
     
     while (removedCells.size < cellsToRemove) {
       const randomIndex = Math.floor(Math.random() * (GRID_SIZE * GRID_SIZE));
-      if (!removedCells.has(randomIndex)) {
+      
+      // Check if removing this cell would still maintain a unique solution
+      const testPuzzle = [...puzzle];
+      testPuzzle[randomIndex] = { ...testPuzzle[randomIndex], type: null };
+      
+      if (!removedCells.has(randomIndex) && hasUniqueSolution(testPuzzle)) {
         removedCells.add(randomIndex);
       }
     }
@@ -169,7 +241,7 @@ export const GameBoard = () => {
 
   useEffect(() => {
     initializeBoard();
-  }, [level]);
+  }, [level, difficulty]);
 
   const initializeBoard = () => {
     const completeSolution = generateValidBoard();
@@ -312,6 +384,15 @@ export const GameBoard = () => {
     });
   };
 
+  const handleDifficultyChange = (newDifficulty: Difficulty) => {
+    setDifficulty(newDifficulty);
+    initializeBoard();
+    toast({
+      title: "Difficulty Changed",
+      description: `Switched to ${newDifficulty} mode`,
+    });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-game-muted to-white p-4">
       <div className="text-center mb-8 animate-fade-in">
@@ -319,9 +400,44 @@ export const GameBoard = () => {
           <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-primary/10 text-game-primary">
             Level {level}
           </div>
+          <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-accent/10 text-game-accent">
+            {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+          </div>
           <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-secondary/10 text-game-secondary">
             Time: {formatTime(timer)}
           </div>
+        </div>
+        <div className="flex justify-center space-x-4 mb-4">
+          <button
+            onClick={() => handleDifficultyChange('easy')}
+            className={`px-4 py-2 rounded-full ${
+              difficulty === 'easy'
+                ? 'bg-green-500 text-white'
+                : 'bg-gray-200 hover:bg-green-200'
+            } transition-colors duration-300`}
+          >
+            Easy
+          </button>
+          <button
+            onClick={() => handleDifficultyChange('medium')}
+            className={`px-4 py-2 rounded-full ${
+              difficulty === 'medium'
+                ? 'bg-yellow-500 text-white'
+                : 'bg-gray-200 hover:bg-yellow-200'
+            } transition-colors duration-300`}
+          >
+            Medium
+          </button>
+          <button
+            onClick={() => handleDifficultyChange('hard')}
+            className={`px-4 py-2 rounded-full ${
+              difficulty === 'hard'
+                ? 'bg-red-500 text-white'
+                : 'bg-gray-200 hover:bg-red-200'
+            } transition-colors duration-300`}
+          >
+            Hard
+          </button>
         </div>
         <h1 className="text-4xl font-bold text-gray-800 mb-2">Sun & Moon Puzzle</h1>
         <p className="text-lg text-gray-600 mb-4">Score: {score}</p>
