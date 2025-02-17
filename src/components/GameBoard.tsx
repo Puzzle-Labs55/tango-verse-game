@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
@@ -74,7 +73,8 @@ export const GameBoard = () => {
         id: index,
         type: Math.random() < 0.5 ? 'sun' : 'moon',
         rotation: 0,
-        isLocked: false
+        isLocked: false,
+        isHint: false  // Added this line to fix the TypeScript error
       }));
 
       // Check if board is valid
@@ -103,12 +103,9 @@ export const GameBoard = () => {
     puzzle = puzzle.map((block, index) => ({
       ...block,
       type: removedCells.has(index) ? null : block.type,
-      isLocked: !removedCells.has(index)
+      isLocked: !removedCells.has(index),
+      isHint: false  // Added this line to ensure consistency
     }));
-
-    // Verify the puzzle has a unique solution
-    // In a real implementation, you'd want to implement a proper solver here
-    // For now, we'll assume our puzzles have unique solutions
 
     return puzzle;
   };
