@@ -183,7 +183,7 @@ export const GameBoard = () => {
   };
 
   const handleBlockClick = (id: number) => {
-    setBlocks((prevBlocks) => {
+    setBlocks((prevBlocks: Block[]) => {
       const block = prevBlocks.find(b => b.id === id);
       if (block?.isLocked) {
         toast({
@@ -197,17 +197,17 @@ export const GameBoard = () => {
       // Save the move to history
       setMoveHistory(prev => [...prev, { blockId: id, previousType: block?.type || null }]);
 
-      const newBlocks = prevBlocks.map((block) =>
+      const newBlocks = prevBlocks.map((block): Block =>
         block.id === id
           ? { 
               ...block, 
-              type: block.type === null ? 'sun' : 
-                    block.type === 'sun' ? 'moon' : null 
+              type: block.type === null ? 'sun' as const : 
+                    block.type === 'sun' ? 'moon' as const : null
             }
           : block
       );
 
-      // Call checkSolution after the state update
+      // Call checkSolution after the state update, with proper typing
       setTimeout(() => checkSolution(newBlocks), 0);
       return newBlocks;
     });
