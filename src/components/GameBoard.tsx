@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
@@ -86,21 +87,149 @@ export const GameBoard = () => {
 
     while (!isValid && attempts < maxAttempts) {
       attempts++;
+      // Start with an empty board
       board = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
         id: index,
-        type: Math.random() < 0.5 ? 'sun' : 'moon',
+        type: null,
         rotation: 0,
         isLocked: false,
         isHint: false
       }));
 
-      // Check if board is valid and has a unique solution
-      isValid = isValidBoard(board) && hasUniqueSolution(board);
+      // Fill board using backtracking
+      if (fillBoardBacktrack(board, 0)) {
+        isValid = true;
+      }
     }
 
     if (!isValid) {
-      // If we couldn't generate a valid board, use a predefined one
-      board = generatePredefinedBoard();
+      console.log("Failed to generate valid board, using backup method");
+      // Use simpler generation method as backup
+      board = generateSimpleValidBoard();
+    }
+
+    return board;
+  };
+
+  const fillBoardBacktrack = (board: Block[], position: number): boolean => {
+    if (position === GRID_SIZE * GRID_SIZE) {
+      return isValidBoard(board);
+    }
+
+    const row = Math.floor(position / GRID_SIZE);
+    const col = position % GRID_SIZE;
+
+    // Try both sun and moon
+    const types: ('sun' | 'moon')[] = ['sun', 'moon'];
+    // Shuffle array to randomize
+    for (let i = types.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [types[i], types[j]] = [types[j], types[i]];
+    }
+
+    for (const type of types) {
+      board[position] = {
+        ...board[position],
+        type
+      };
+
+      // Check if current partial board is valid
+      if (isPartialBoardValid(board, row, col)) {
+        if (fillBoardBacktrack(board, position + 1)) {
+          return true;
+        }
+      }
+    }
+
+    // If no solution found, backtrack
+    board[position] = {
+      ...board[position],
+      type: null
+    };
+    return false;
+  };
+
+  const isPartialBoardValid = (board: Block[], row: number, col: number): boolean => {
+    // Check current row
+    const rowBlocks = board.slice(row * GRID_SIZE, (row + 1) * GRID_SIZE)
+      .filter(b => b.type !== null);
+    const rowSuns = rowBlocks.filter(b => b.type === 'sun').length;
+    const rowMoons = rowBlocks.filter(b => b.type === 'moon').length;
+    
+    if (rowSuns > GRID_SIZE / 2 || rowMoons > GRID_SIZE / 2) return false;
+    
+    // Check consecutive in row
+    let consecutiveSuns = 0;
+    let consecutiveMoons = 0;
+    for (let c = 0; c <= col; c++) {
+      const block = board[row * GRID_SIZE + c];
+      if (block.type === 'sun') {
+        consecutiveSuns++;
+        consecutiveMoons = 0;
+      } else if (block.type === 'moon') {
+        consecutiveMoons++;
+        consecutiveSuns = 0;
+      }
+      if (consecutiveSuns > 2 || consecutiveMoons > 2) return false;
+    }
+
+    // Check current column
+    const colBlocks = Array.from({ length: GRID_SIZE }, (_, i) => board[i * GRID_SIZE + col])
+      .filter(b => b.type !== null);
+    const colSuns = colBlocks.filter(b => b.type === 'sun').length;
+    const colMoons = colBlocks.filter(b => b.type === 'moon').length;
+    
+    if (colSuns > GRID_SIZE / 2 || colMoons > GRID_SIZE / 2) return false;
+    
+    // Check consecutive in column
+    consecutiveSuns = 0;
+    consecutiveMoons = 0;
+    for (let r = 0; r <= row; r++) {
+      const block = board[r * GRID_SIZE + col];
+      if (block.type === 'sun') {
+        consecutiveSuns++;
+        consecutiveMoons = 0;
+      } else if (block.type === 'moon') {
+        consecutiveMoons++;
+        consecutiveSuns = 0;
+      }
+      if (consecutiveSuns > 2 || consecutiveMoons > 2) return false;
+    }
+
+    return true;
+  };
+
+  const generateSimpleValidBoard = (): Block[] => {
+    const board: Block[] = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
+      id: index,
+      type: Math.random() < 0.5 ? 'sun' : 'moon',
+      rotation: 0,
+      isLocked: false,
+      isHint: false
+    }));
+
+    // Ensure no more than 2 consecutive same types
+    for (let i = 0; i < board.length; i++) {
+      const row = Math.floor(i / GRID_SIZE);
+      const col = i % GRID_SIZE;
+      
+      // Check horizontal
+      if (col >= 2) {
+        const prev2 = board[i - 2].type;
+        const prev1 = board[i - 1].type;
+        if (prev2 === prev1 && prev1 === board[i].type) {
+          board[i].type = board[i].type === 'sun' ? 'moon' : 'sun';
+        }
+      }
+      
+      // Check vertical
+      if (row >= 2) {
+        const prev2 = board[i - 2 * GRID_SIZE].type;
+        const prev1 = board[i - GRID_SIZE].type;
+        if (prev2 === prev1 && prev1 === board[i].type) {
+          board[i].type = board[i].type === 'sun' ? 'moon' : 'sun';
+        }
+      }
     }
 
     return board;
