@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
 import { toast } from "@/components/ui/use-toast";
@@ -10,9 +10,11 @@ export interface Block {
   type: 'sun' | 'moon' | null;
   rotation: number;
   isLocked: boolean;
+  isHint: boolean;
 }
 
 const GRID_SIZE = 6;
+const HINT_COOLDOWN = 20; // seconds
 
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -20,6 +22,47 @@ export const GameBoard = () => {
   const [level, setLevel] = useState(1);
   const [isPuzzleSolved, setIsPuzzleSolved] = useState(false);
   const [solution, setSolution] = useState<Block[]>([]);
+  const [timer, setTimer] = useState(0);
+  const [isActive, setIsActive] = useState(false);
+  const [hintCooldown, setHintCooldown] = useState(0);
+  
+  // Timer logic
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (isActive && !isPuzzleSolved) {
+      interval = setInterval(() => {
+        setTimer((time) => time + 1);
+      }, 1000);
+    } else if (!isActive && !isPuzzleSolved) {
+      if (interval) clearInterval(interval);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive, isPuzzleSolved]);
+
+  // Hint cooldown logic
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (hintCooldown > 0) {
+      interval = setInterval(() => {
+        setHintCooldown((time) => Math.max(0, time - 1));
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [hintCooldown]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const generateValidBoard = (): Block[] => {
     let isValid = false;
@@ -136,6 +179,8 @@ export const GameBoard = () => {
     const newPuzzle = createPuzzle(completeSolution);
     setBlocks(newPuzzle);
     setIsPuzzleSolved(false);
+    setTimer(0);
+    setIsActive(true);
   };
 
   const handleBlockClick = (id: number) => {
@@ -163,6 +208,46 @@ export const GameBoard = () => {
     checkSolution();
   };
 
+  const handleHint = () => {
+    if (hintCooldown > 0) {
+      toast({
+        title: "Hint cooldown active",
+        description: `Please wait ${hintCooldown} seconds before using another hint`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Find an empty cell to reveal
+    const emptyCells = blocks
+      .map((block, index) => ({ ...block, index }))
+      .filter(block => !block.isLocked && block.type === null);
+
+    if (emptyCells.length === 0) {
+      toast({
+        title: "No empty cells",
+        description: "All cells are already filled!",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Randomly select an empty cell
+    const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    const solutionCell = solution[randomCell.index];
+
+    setBlocks(prevBlocks => 
+      prevBlocks.map((block, index) => 
+        index === randomCell.index
+          ? { ...block, type: solutionCell.type, isLocked: true, isHint: true }
+          : block
+      )
+    );
+
+    // Start cooldown
+    setHintCooldown(HINT_COOLDOWN);
+  };
+
   const checkSolution = () => {
     // Check if all cells are filled
     const isComplete = blocks.every(block => block.type !== null);
@@ -171,10 +256,16 @@ export const GameBoard = () => {
       const points = 100 * level;
       setScore((prev) => prev + points);
       setIsPuzzleSolved(true);
+      setIsActive(false);
       toast({
         title: "Puzzle solved!",
-        description: `You earned ${points} points!`,
+        description: `You earned ${points} points! Time taken: ${formatTime(timer)}`,
       });
+      
+      // Automatically proceed to next level after a delay
+      setTimeout(() => {
+        handleNextLevel();
+      }, 2000);
     }
   };
 
@@ -189,11 +280,27 @@ export const GameBoard = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-game-muted to-white p-4">
       <div className="text-center mb-8 animate-fade-in">
-        <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-primary/10 text-game-primary mb-2">
-          Level {level}
+        <div className="flex items-center justify-center space-x-4 mb-4">
+          <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-primary/10 text-game-primary">
+            Level {level}
+          </div>
+          <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-secondary/10 text-game-secondary">
+            Time: {formatTime(timer)}
+          </div>
         </div>
         <h1 className="text-4xl font-bold text-gray-800 mb-2">Sun & Moon Puzzle</h1>
-        <p className="text-lg text-gray-600">Score: {score}</p>
+        <p className="text-lg text-gray-600 mb-4">Score: {score}</p>
+        <button
+          onClick={handleHint}
+          disabled={hintCooldown > 0}
+          className={`px-4 py-2 rounded-full ${
+            hintCooldown > 0
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-game-primary text-white hover:bg-game-secondary'
+          } transition-colors duration-300 shadow-md mb-4`}
+        >
+          {hintCooldown > 0 ? `Hint (${hintCooldown}s)` : 'Hint'}
+        </button>
       </div>
 
       <motion.div
@@ -212,16 +319,6 @@ export const GameBoard = () => {
       </motion.div>
 
       <div className="mt-8 space-x-4">
-        {isPuzzleSolved && (
-          <motion.button
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="px-6 py-2 bg-game-secondary text-white rounded-full hover:bg-game-primary transition-colors duration-300 shadow-md"
-            onClick={handleNextLevel}
-          >
-            Next Level →
-          </motion.button>
-        )}
         <button
           onClick={initializeBoard}
           className="px-6 py-2 bg-game-primary text-white rounded-full hover:bg-game-secondary transition-colors duration-300 shadow-md"
