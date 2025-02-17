@@ -197,7 +197,7 @@ export const GameBoard = () => {
       // Save the move to history
       setMoveHistory(prev => [...prev, { blockId: id, previousType: block?.type || null }]);
 
-      return prevBlocks.map((block) =>
+      const newBlocks = prevBlocks.map((block) =>
         block.id === id
           ? { 
               ...block, 
@@ -206,8 +206,11 @@ export const GameBoard = () => {
             }
           : block
       );
+
+      // Call checkSolution after the state update
+      setTimeout(() => checkSolution(newBlocks), 0);
+      return newBlocks;
     });
-    checkSolution();
   };
 
   const undoLastMove = () => {
@@ -271,12 +274,13 @@ export const GameBoard = () => {
     setHintCooldown(HINT_COOLDOWN);
   };
 
-  const checkSolution = () => {
+  const checkSolution = useCallback((currentBlocks: Block[]) => {
     // Check if all cells are filled
-    const isComplete = blocks.every(block => block.type !== null);
+    const isComplete = currentBlocks.every(block => block.type !== null);
     
     if (isComplete) {
-      if (isValidBoard(blocks)) {
+      console.log("Board is complete, checking solution...");
+      if (isValidBoard(currentBlocks)) {
         const points = 100 * level;
         setScore((prev) => prev + points);
         setIsPuzzleSolved(true);
@@ -298,7 +302,7 @@ export const GameBoard = () => {
         });
       }
     }
-  };
+  }, [level, timer, isValidBoard]);
 
   const handleNextLevel = () => {
     setLevel((prev) => prev + 1);
