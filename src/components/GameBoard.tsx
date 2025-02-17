@@ -12,6 +12,11 @@ export interface Block {
   isHint: boolean;
 }
 
+interface Move {
+  blockId: number;
+  previousType: 'sun' | 'moon' | null;
+}
+
 const GRID_SIZE = 6;
 const HINT_COOLDOWN = 20; // seconds
 
@@ -24,6 +29,7 @@ export const GameBoard = () => {
   const [timer, setTimer] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [hintCooldown, setHintCooldown] = useState(0);
+  const [moveHistory, setMoveHistory] = useState<Move[]>([]);
   
   // Timer logic
   useEffect(() => {
@@ -68,16 +74,14 @@ export const GameBoard = () => {
     let board: Block[] = [];
 
     while (!isValid) {
-      // Initialize board with random suns and moons
       board = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
         id: index,
         type: Math.random() < 0.5 ? 'sun' : 'moon',
         rotation: 0,
         isLocked: false,
-        isHint: false  // Added this line to fix the TypeScript error
+        isHint: false
       }));
 
-      // Check if board is valid
       isValid = isValidBoard(board);
     }
 
@@ -85,10 +89,8 @@ export const GameBoard = () => {
   };
 
   const createPuzzle = (solution: Block[]): Block[] => {
-    // Create a copy of the solution
     let puzzle = [...solution];
     
-    // Randomly remove cells (about 60% of cells will be empty)
     const cellsToRemove = Math.floor(GRID_SIZE * GRID_SIZE * 0.6);
     const removedCells = new Set<number>();
     
@@ -99,12 +101,11 @@ export const GameBoard = () => {
       }
     }
 
-    // Create the puzzle with removed cells and locked remaining cells
     puzzle = puzzle.map((block, index) => ({
       ...block,
       type: removedCells.has(index) ? null : block.type,
       isLocked: !removedCells.has(index),
-      isHint: false  // Added this line to ensure consistency
+      isHint: false
     }));
 
     return puzzle;
@@ -178,6 +179,7 @@ export const GameBoard = () => {
     setIsPuzzleSolved(false);
     setTimer(0);
     setIsActive(true);
+    setMoveHistory([]);
   };
 
   const handleBlockClick = (id: number) => {
@@ -192,6 +194,9 @@ export const GameBoard = () => {
         return prevBlocks;
       }
 
+      // Save the move to history
+      setMoveHistory(prev => [...prev, { blockId: id, previousType: block?.type || null }]);
+
       return prevBlocks.map((block) =>
         block.id === id
           ? { 
@@ -203,6 +208,27 @@ export const GameBoard = () => {
       );
     });
     checkSolution();
+  };
+
+  const undoLastMove = () => {
+    if (moveHistory.length === 0) {
+      toast({
+        title: "No moves to undo",
+        description: "You haven't made any moves yet",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const lastMove = moveHistory[moveHistory.length - 1];
+    setBlocks(prevBlocks =>
+      prevBlocks.map(block =>
+        block.id === lastMove.blockId
+          ? { ...block, type: lastMove.previousType }
+          : block
+      )
+    );
+    setMoveHistory(prev => prev.slice(0, -1));
   };
 
   const handleHint = () => {
@@ -249,20 +275,28 @@ export const GameBoard = () => {
     // Check if all cells are filled
     const isComplete = blocks.every(block => block.type !== null);
     
-    if (isComplete && isValidBoard(blocks)) {
-      const points = 100 * level;
-      setScore((prev) => prev + points);
-      setIsPuzzleSolved(true);
-      setIsActive(false);
-      toast({
-        title: "Puzzle solved!",
-        description: `You earned ${points} points! Time taken: ${formatTime(timer)}`,
-      });
-      
-      // Automatically proceed to next level after a delay
-      setTimeout(() => {
-        handleNextLevel();
-      }, 2000);
+    if (isComplete) {
+      if (isValidBoard(blocks)) {
+        const points = 100 * level;
+        setScore((prev) => prev + points);
+        setIsPuzzleSolved(true);
+        setIsActive(false);
+        toast({
+          title: "Level Cleared! 🎉",
+          description: `You earned ${points} points! Time taken: ${formatTime(timer)}`,
+        });
+        
+        // Automatically proceed to next level after a delay
+        setTimeout(() => {
+          handleNextLevel();
+        }, 2000);
+      } else {
+        toast({
+          title: "Level Failed ❌",
+          description: "Your solution doesn't follow the rules. Try undoing your last move.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -287,17 +321,30 @@ export const GameBoard = () => {
         </div>
         <h1 className="text-4xl font-bold text-gray-800 mb-2">Sun & Moon Puzzle</h1>
         <p className="text-lg text-gray-600 mb-4">Score: {score}</p>
-        <button
-          onClick={handleHint}
-          disabled={hintCooldown > 0}
-          className={`px-4 py-2 rounded-full ${
-            hintCooldown > 0
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-game-primary text-white hover:bg-game-secondary'
-          } transition-colors duration-300 shadow-md mb-4`}
-        >
-          {hintCooldown > 0 ? `Hint (${hintCooldown}s)` : 'Hint'}
-        </button>
+        <div className="flex justify-center space-x-4 mb-4">
+          <button
+            onClick={handleHint}
+            disabled={hintCooldown > 0}
+            className={`px-4 py-2 rounded-full ${
+              hintCooldown > 0
+                ? 'bg-gray-300 cursor-not-allowed'
+                : 'bg-game-primary text-white hover:bg-game-secondary'
+            } transition-colors duration-300 shadow-md`}
+          >
+            {hintCooldown > 0 ? `Hint (${hintCooldown}s)` : 'Hint'}
+          </button>
+          <button
+            onClick={undoLastMove}
+            disabled={moveHistory.length === 0}
+            className={`px-4 py-2 rounded-full ${
+              moveHistory.length === 0
+                ? 'bg-gray-300 cursor-not-allowed'
+                : 'bg-yellow-500 text-white hover:bg-yellow-600'
+            } transition-colors duration-300 shadow-md`}
+          >
+            Undo
+          </button>
+        </div>
       </div>
 
       <motion.div
