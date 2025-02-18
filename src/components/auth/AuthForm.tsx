@@ -100,7 +100,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <Button
               variant="outline"
               onClick={() => handleSocialLogin('google')}
-              className="w-full bg-white hover:bg-gray-50 transition-colors duration-200 border-gray-300"
+              className="w-full bg-white/50 hover:bg-white/60 transition-colors duration-200 backdrop-blur-sm"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -113,17 +113,17 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <Button
               variant="outline"
               onClick={() => handleSocialLogin('linkedin_oidc')}
-              className="w-full bg-[#0A66C2] hover:bg-[#004182] transition-colors duration-200 border-transparent"
+              className="w-full bg-white/50 hover:bg-white/60 transition-colors duration-200 backdrop-blur-sm"
             >
-              <Linkedin className="h-5 w-5 text-white" />
+              <Linkedin className="h-5 w-5 text-[#0A66C2]" />
             </Button>
             {/* Facebook Button */}
             <Button
               variant="outline"
               onClick={() => handleSocialLogin('facebook')}
-              className="w-full bg-[#1877F2] hover:bg-[#0C63D4] transition-colors duration-200 border-transparent"
+              className="w-full bg-white/50 hover:bg-white/60 transition-colors duration-200 backdrop-blur-sm"
             >
-              <Facebook className="h-5 w-5 text-white" />
+              <Facebook className="h-5 w-5 text-[#1877F2]" />
             </Button>
           </div>
 
