@@ -87,9 +87,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   };
 
   return (
-    <Card className="w-[350px]">
-      <CardHeader>
-        <CardTitle>{mode === "login" ? "Login" : "Register"}</CardTitle>
+    <Card className="w-[350px] backdrop-blur-sm bg-white/80 border border-white/20 shadow-lg">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl font-bold text-center text-gray-800">
+          {mode === "login" ? "Welcome back!" : "Create an account"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -97,7 +99,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <Button
               variant="outline"
               onClick={() => handleSocialLogin('google')}
-              className="w-full"
+              className="w-full bg-white hover:bg-gray-50 transition-colors duration-200"
             >
               <svg className="h-5 w-5" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
@@ -106,14 +108,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <Button
               variant="outline"
               onClick={() => handleSocialLogin('linkedin_oidc')}
-              className="w-full"
+              className="w-full bg-white hover:bg-gray-50 transition-colors duration-200"
             >
               <Linkedin className="h-5 w-5" />
             </Button>
             <Button
               variant="outline"
               onClick={() => handleSocialLogin('facebook')}
-              className="w-full"
+              className="w-full bg-white hover:bg-gray-50 transition-colors duration-200"
             >
               <Facebook className="h-5 w-5" />
             </Button>
@@ -121,10 +123,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+              <span className="w-full border-t border-gray-200" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
+              <span className="bg-white/80 px-2 text-gray-500 backdrop-blur-sm">
                 Or continue with
               </span>
             </div>
@@ -137,9 +139,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className="text-gray-700">Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your email" {...field} />
+                      <Input 
+                        placeholder="Enter your email" 
+                        {...field} 
+                        className="bg-white/50 backdrop-blur-sm border border-gray-200"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -150,20 +156,24 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel className="text-gray-700">Password</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
                         placeholder="Enter your password"
                         {...field}
+                        className="bg-white/50 backdrop-blur-sm border border-gray-200"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
-                {mode === "login" ? "Login" : "Register"}
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-[#FEC6A1] to-[#D3E4FD] hover:opacity-90 transition-opacity text-gray-800 font-medium"
+              >
+                {mode === "login" ? "Sign In" : "Create Account"}
               </Button>
             </form>
           </Form>
