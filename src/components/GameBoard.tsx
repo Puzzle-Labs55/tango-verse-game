@@ -51,6 +51,7 @@ const getDifficultyForLevel = (level: number): Difficulty => {
 
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [initialBlocks, setInitialBlocks] = useState<Block[]>([]); // Store initial board state
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
   const [difficulty, setDifficulty] = useState<Difficulty>(getDifficultyForLevel(1));
@@ -323,8 +324,27 @@ export const GameBoard = () => {
     const cellsToRemove = Math.floor(GRID_SIZE * GRID_SIZE * settings.cellsToRemove);
     const removedCells = new Set<number>();
     
+    // First, identify cells that provide crucial hints
+    const criticalHints = new Set<number>();
+    
+    // Check each row and column to ensure at least one fixed number
+    for (let i = 0; i < GRID_SIZE; i++) {
+      // For rows
+      const rowStart = i * GRID_SIZE;
+      const rowHint = rowStart + Math.floor(Math.random() * GRID_SIZE);
+      criticalHints.add(rowHint);
+      
+      // For columns
+      const colHint = i + (Math.floor(Math.random() * GRID_SIZE) * GRID_SIZE);
+      criticalHints.add(colHint);
+    }
+    
+    // Remove cells while maintaining solvability
     while (removedCells.size < cellsToRemove) {
       const randomIndex = Math.floor(Math.random() * (GRID_SIZE * GRID_SIZE));
+      
+      // Skip if it's a critical hint
+      if (criticalHints.has(randomIndex)) continue;
       
       // Check if removing this cell would still maintain a unique solution
       const testPuzzle = [...puzzle];
@@ -406,14 +426,23 @@ export const GameBoard = () => {
   }, [level, difficulty]);
 
   const initializeBoard = () => {
-    const completeSolution = generateValidBoard();
-    setSolution(completeSolution);
-    const newPuzzle = createPuzzle(completeSolution);
-    setBlocks(newPuzzle);
+    if (initialBlocks.length === 0) {
+      // Only generate new puzzle if there isn't one already
+      const completeSolution = generateValidBoard();
+      setSolution(completeSolution);
+      const newPuzzle = createPuzzle(completeSolution);
+      setBlocks(newPuzzle);
+      setInitialBlocks([...newPuzzle]); // Store initial state
+    } else {
+      // Reset to initial state
+      setBlocks([...initialBlocks]);
+    }
+    
     setIsPuzzleSolved(false);
     setTimer(0);
     setIsActive(true);
     setMoveHistory([]);
+    setHintCooldown(0);
 
     // Check if this is the first visit
     const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
@@ -547,6 +576,7 @@ export const GameBoard = () => {
 
   const handleNextLevel = () => {
     setLevel((prev) => prev + 1);
+    setInitialBlocks([]); // Clear initial blocks to generate new puzzle for next level
     toast({
       title: "Level up!",
       description: `Welcome to level ${level + 1}`,
