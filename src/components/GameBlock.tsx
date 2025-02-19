@@ -14,7 +14,7 @@ export const GameBlock: React.FC<GameBlockProps> = ({ block, onClick }) => {
     <motion.div
       className={`w-12 h-12 md:w-16 md:h-16 cursor-pointer relative bg-white rounded-lg shadow-md ${
         block.isLocked ? 'bg-gray-50' : 'hover:bg-gray-50'
-      } ${block.isHint ? 'ring-2 ring-yellow-400' : ''}`}
+      } ${block.isHint ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
       whileHover={{ scale: block.isLocked ? 1 : 1.05 }}
       whileTap={{ scale: block.isLocked ? 1 : 0.95 }}
       onClick={onClick}

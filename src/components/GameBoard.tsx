@@ -31,18 +31,17 @@ const DIFFICULTY_SETTINGS = {
 };
 
 const getDifficultyForLevel = (level: number): Difficulty => {
-  // Calculate the position within a cycle (cycles are 5 levels long)
   const cyclePosition = (level - 1) % 5;
   
   switch (cyclePosition) {
-    case 0: // First level in cycle
-    case 1: // Second level in cycle
+    case 0: 
+    case 1: 
       return 'easy';
-    case 2: // Third level in cycle
+    case 2: 
       return 'medium';
-    case 3: // Fourth level in cycle
+    case 3: 
       return 'hard';
-    case 4: // Fifth level in cycle
+    case 4: 
       return 'very-hard';
     default:
       return 'easy';
@@ -51,7 +50,7 @@ const getDifficultyForLevel = (level: number): Difficulty => {
 
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [initialBlocks, setInitialBlocks] = useState<Block[]>([]); // Store initial board state
+  const [initialBlocks, setInitialBlocks] = useState<Block[]>([]);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
   const [difficulty, setDifficulty] = useState<Difficulty>(getDifficultyForLevel(1));
@@ -68,14 +67,12 @@ export const GameBoard = () => {
     setDifficulty(newDifficulty);
     initializeBoard();
 
-    // Show difficulty change message
     toast({
       title: `Level ${level}`,
       description: `Difficulty: ${newDifficulty.charAt(0).toUpperCase() + newDifficulty.slice(1)}`,
     });
   }, [level]);
 
-  // Timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     
@@ -92,7 +89,6 @@ export const GameBoard = () => {
     };
   }, [isActive, isPuzzleSolved]);
 
-  // Hint cooldown logic
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     
@@ -121,7 +117,6 @@ export const GameBoard = () => {
 
     while (!isValid && attempts < maxAttempts) {
       attempts++;
-      // Start with an empty board
       board = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
         id: index,
         type: null,
@@ -130,7 +125,6 @@ export const GameBoard = () => {
         isHint: false
       }));
 
-      // Fill board using backtracking
       if (fillBoardBacktrack(board, 0)) {
         isValid = true;
       }
@@ -138,7 +132,6 @@ export const GameBoard = () => {
 
     if (!isValid) {
       console.log("Failed to generate valid board, using backup method");
-      // Use simpler generation method as backup
       board = generateSimpleValidBoard();
     }
 
@@ -153,9 +146,7 @@ export const GameBoard = () => {
     const row = Math.floor(position / GRID_SIZE);
     const col = position % GRID_SIZE;
 
-    // Try both sun and moon
     const types: ('sun' | 'moon')[] = ['sun', 'moon'];
-    // Shuffle array to randomize
     for (let i = types.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [types[i], types[j]] = [types[j], types[i]];
@@ -167,7 +158,6 @@ export const GameBoard = () => {
         type
       };
 
-      // Check if current partial board is valid
       if (isPartialBoardValid(board, row, col)) {
         if (fillBoardBacktrack(board, position + 1)) {
           return true;
@@ -175,7 +165,6 @@ export const GameBoard = () => {
       }
     }
 
-    // If no solution found, backtrack
     board[position] = {
       ...board[position],
       type: null
@@ -184,7 +173,6 @@ export const GameBoard = () => {
   };
 
   const isPartialBoardValid = (board: Block[], row: number, col: number): boolean => {
-    // Check current row
     const rowBlocks = board.slice(row * GRID_SIZE, (row + 1) * GRID_SIZE)
       .filter(b => b.type !== null);
     const rowSuns = rowBlocks.filter(b => b.type === 'sun').length;
@@ -192,7 +180,6 @@ export const GameBoard = () => {
     
     if (rowSuns > GRID_SIZE / 2 || rowMoons > GRID_SIZE / 2) return false;
     
-    // Check consecutive in row
     let consecutiveSuns = 0;
     let consecutiveMoons = 0;
     for (let c = 0; c <= col; c++) {
@@ -207,7 +194,6 @@ export const GameBoard = () => {
       if (consecutiveSuns > 2 || consecutiveMoons > 2) return false;
     }
 
-    // Check current column
     const colBlocks = Array.from({ length: GRID_SIZE }, (_, i) => board[i * GRID_SIZE + col])
       .filter(b => b.type !== null);
     const colSuns = colBlocks.filter(b => b.type === 'sun').length;
@@ -215,7 +201,6 @@ export const GameBoard = () => {
     
     if (colSuns > GRID_SIZE / 2 || colMoons > GRID_SIZE / 2) return false;
     
-    // Check consecutive in column
     consecutiveSuns = 0;
     consecutiveMoons = 0;
     for (let r = 0; r <= row; r++) {
@@ -242,12 +227,10 @@ export const GameBoard = () => {
       isHint: false
     }));
 
-    // Ensure no more than 2 consecutive same types
     for (let i = 0; i < board.length; i++) {
       const row = Math.floor(i / GRID_SIZE);
       const col = i % GRID_SIZE;
       
-      // Check horizontal
       if (col >= 2) {
         const prev2 = board[i - 2].type;
         const prev1 = board[i - 1].type;
@@ -256,7 +239,6 @@ export const GameBoard = () => {
         }
       }
       
-      // Check vertical
       if (row >= 2) {
         const prev2 = board[i - 2 * GRID_SIZE].type;
         const prev1 = board[i - GRID_SIZE].type;
@@ -270,13 +252,10 @@ export const GameBoard = () => {
   };
 
   const hasUniqueSolution = (board: Block[]): boolean => {
-    // Count empty cells and their possible values
     let emptyCells = 0;
     let constrainedCells = 0;
 
-    // Check rows and columns for constraints
     for (let i = 0; i < GRID_SIZE; i++) {
-      // Check rows
       const rowSuns = board.slice(i * GRID_SIZE, (i + 1) * GRID_SIZE).filter(b => b.type === 'sun').length;
       const rowMoons = board.slice(i * GRID_SIZE, (i + 1) * GRID_SIZE).filter(b => b.type === 'moon').length;
       
@@ -284,7 +263,6 @@ export const GameBoard = () => {
       if (rowSuns === GRID_SIZE / 2) constrainedCells += GRID_SIZE - rowSuns - rowMoons;
       if (rowMoons === GRID_SIZE / 2) constrainedCells += GRID_SIZE - rowSuns - rowMoons;
 
-      // Check columns
       const colSuns = board.filter((b, index) => index % GRID_SIZE === i && b.type === 'sun').length;
       const colMoons = board.filter((b, index) => index % GRID_SIZE === i && b.type === 'moon').length;
       
@@ -293,15 +271,12 @@ export const GameBoard = () => {
       if (colMoons === GRID_SIZE / 2) constrainedCells += GRID_SIZE - colSuns - colMoons;
     }
 
-    // Count empty cells
     emptyCells = board.filter(b => b.type === null).length;
 
-    // If all empty cells are constrained, solution is unique
     return constrainedCells >= emptyCells;
   };
 
   const generatePredefinedBoard = (): Block[] => {
-    // A predefined valid board with a unique solution
     return Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
       id: index,
       type: [
@@ -324,29 +299,22 @@ export const GameBoard = () => {
     const cellsToRemove = Math.floor(GRID_SIZE * GRID_SIZE * settings.cellsToRemove);
     const removedCells = new Set<number>();
     
-    // First, identify cells that provide crucial hints
     const criticalHints = new Set<number>();
     
-    // Check each row and column to ensure at least one fixed number
     for (let i = 0; i < GRID_SIZE; i++) {
-      // For rows
       const rowStart = i * GRID_SIZE;
       const rowHint = rowStart + Math.floor(Math.random() * GRID_SIZE);
       criticalHints.add(rowHint);
       
-      // For columns
       const colHint = i + (Math.floor(Math.random() * GRID_SIZE) * GRID_SIZE);
       criticalHints.add(colHint);
     }
     
-    // Remove cells while maintaining solvability
     while (removedCells.size < cellsToRemove) {
       const randomIndex = Math.floor(Math.random() * (GRID_SIZE * GRID_SIZE));
       
-      // Skip if it's a critical hint
       if (criticalHints.has(randomIndex)) continue;
       
-      // Check if removing this cell would still maintain a unique solution
       const testPuzzle = [...puzzle];
       testPuzzle[randomIndex] = { ...testPuzzle[randomIndex], type: null };
       
@@ -366,7 +334,6 @@ export const GameBoard = () => {
   };
 
   const isValidBoard = (board: Block[]): boolean => {
-    // Check rows
     for (let row = 0; row < GRID_SIZE; row++) {
       let sunCount = 0;
       let moonCount = 0;
@@ -392,7 +359,6 @@ export const GameBoard = () => {
       if (sunCount !== moonCount) return false;
     }
 
-    // Check columns
     for (let col = 0; col < GRID_SIZE; col++) {
       let sunCount = 0;
       let moonCount = 0;
@@ -427,14 +393,12 @@ export const GameBoard = () => {
 
   const initializeBoard = () => {
     if (initialBlocks.length === 0) {
-      // Only generate new puzzle if there isn't one already
       const completeSolution = generateValidBoard();
       setSolution(completeSolution);
       const newPuzzle = createPuzzle(completeSolution);
       setBlocks(newPuzzle);
-      setInitialBlocks([...newPuzzle]); // Store initial state
+      setInitialBlocks([...newPuzzle]);
     } else {
-      // Reset to initial state
       setBlocks([...initialBlocks]);
     }
     
@@ -444,7 +408,6 @@ export const GameBoard = () => {
     setMoveHistory([]);
     setHintCooldown(0);
 
-    // Check if this is the first visit
     const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
     if (!hasSeenTutorial) {
       setShowTutorial(true);
@@ -464,7 +427,6 @@ export const GameBoard = () => {
         return prevBlocks;
       }
 
-      // Save the move to history
       setMoveHistory(prev => [...prev, { blockId: id, previousType: block?.type || null }]);
 
       const newBlocks = prevBlocks.map((block): Block =>
@@ -477,7 +439,6 @@ export const GameBoard = () => {
           : block
       );
 
-      // Call checkSolution after the state update, with proper typing
       setTimeout(() => checkSolution(newBlocks), 0);
       return newBlocks;
     });
@@ -514,7 +475,6 @@ export const GameBoard = () => {
       return;
     }
 
-    // Find an empty cell to reveal
     const emptyCells = blocks
       .map((block, index) => ({ ...block, index }))
       .filter(block => !block.isLocked && block.type === null);
@@ -528,24 +488,70 @@ export const GameBoard = () => {
       return;
     }
 
-    // Randomly select an empty cell
-    const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-    const solutionCell = solution[randomCell.index];
+    let hintCell = -1;
+    for (const cell of emptyCells) {
+      const row = Math.floor(cell.index / GRID_SIZE);
+      const col = cell.index % GRID_SIZE;
+      
+      const rowCells = blocks.slice(row * GRID_SIZE, (row + 1) * GRID_SIZE);
+      const rowSuns = rowCells.filter(b => b.type === 'sun').length;
+      const rowMoons = rowCells.filter(b => b.type === 'moon').length;
+      
+      const colCells = Array.from({ length: GRID_SIZE }, (_, i) => blocks[i * GRID_SIZE + col]);
+      const colSuns = colCells.filter(b => b.type === 'sun').length;
+      const colMoons = colCells.filter(b => b.type === 'moon').length;
+
+      const hasConsecutiveSuns = checkConsecutive(rowCells, 'sun') || checkConsecutive(colCells, 'sun');
+      const hasConsecutiveMoons = checkConsecutive(rowCells, 'moon') || checkConsecutive(colCells, 'moon');
+
+      if (rowSuns === GRID_SIZE / 2 || colSuns === GRID_SIZE / 2 ||
+          rowMoons === GRID_SIZE / 2 || colMoons === GRID_SIZE / 2 ||
+          hasConsecutiveSuns || hasConsecutiveMoons) {
+        hintCell = cell.index;
+        break;
+      }
+    }
+
+    if (hintCell === -1) {
+      toast({
+        title: "No logical hints available",
+        description: "Try looking for patterns in rows and columns",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setBlocks(prevBlocks => 
       prevBlocks.map((block, index) => 
-        index === randomCell.index
-          ? { ...block, type: solutionCell.type, isLocked: true, isHint: true }
+        index === hintCell
+          ? { ...block, isHint: true }
           : block
       )
     );
 
-    // Start cooldown
     setHintCooldown(HINT_COOLDOWN);
+
+    setTimeout(() => {
+      setBlocks(prevBlocks =>
+        prevBlocks.map(block => ({ ...block, isHint: false }))
+      );
+    }, 3000);
+  };
+
+  const checkConsecutive = (cells: Block[], type: 'sun' | 'moon'): boolean => {
+    let consecutive = 0;
+    for (const cell of cells) {
+      if (cell.type === type) {
+        consecutive++;
+        if (consecutive === 2) return true;
+      } else {
+        consecutive = 0;
+      }
+    }
+    return false;
   };
 
   const checkSolution = useCallback((currentBlocks: Block[]) => {
-    // Check if all cells are filled
     const isComplete = currentBlocks.every(block => block.type !== null);
     
     if (isComplete) {
@@ -560,7 +566,6 @@ export const GameBoard = () => {
           description: `You earned ${points} points! Time taken: ${formatTime(timer)}`,
         });
         
-        // Automatically proceed to next level after a delay
         setTimeout(() => {
           handleNextLevel();
         }, 2000);
@@ -576,7 +581,7 @@ export const GameBoard = () => {
 
   const handleNextLevel = () => {
     setLevel((prev) => prev + 1);
-    setInitialBlocks([]); // Clear initial blocks to generate new puzzle for next level
+    setInitialBlocks([]);
     toast({
       title: "Level up!",
       description: `Welcome to level ${level + 1}`,
