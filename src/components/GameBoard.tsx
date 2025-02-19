@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
 import { toast } from "@/components/ui/use-toast";
 import { Sun, Moon } from "lucide-react";
+import { GameTutorial } from "./GameTutorial";
 
 export interface Block {
   id: number;
@@ -40,6 +40,7 @@ export const GameBoard = () => {
   const [isActive, setIsActive] = useState(false);
   const [hintCooldown, setHintCooldown] = useState(0);
   const [moveHistory, setMoveHistory] = useState<Move[]>([]);
+  const [showTutorial, setShowTutorial] = useState(false);
   
   // Timer logic
   useEffect(() => {
@@ -381,6 +382,13 @@ export const GameBoard = () => {
     setTimer(0);
     setIsActive(true);
     setMoveHistory([]);
+
+    // Check if this is the first visit
+    const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
+    if (!hasSeenTutorial) {
+      setShowTutorial(true);
+      localStorage.setItem('hasSeenTutorial', 'true');
+    }
   };
 
   const handleBlockClick = (id: number) => {
@@ -523,103 +531,108 @@ export const GameBoard = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-game-muted to-white p-4">
-      <div className="text-center mb-8 animate-fade-in">
-        <div className="flex items-center justify-center space-x-4 mb-4">
-          <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-primary/10 text-game-primary">
-            Level {level}
+    <>
+      {showTutorial && (
+        <GameTutorial onClose={() => setShowTutorial(false)} />
+      )}
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-game-muted to-white p-4">
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="flex items-center justify-center space-x-4 mb-4">
+            <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-primary/10 text-game-primary">
+              Level {level}
+            </div>
+            <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-accent/10 text-game-accent">
+              {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+            </div>
+            <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-secondary/10 text-game-secondary">
+              Time: {formatTime(timer)}
+            </div>
           </div>
-          <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-accent/10 text-game-accent">
-            {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+          <div className="flex justify-center space-x-4 mb-4">
+            <button
+              onClick={() => handleDifficultyChange('easy')}
+              className={`px-4 py-2 rounded-full ${
+                difficulty === 'easy'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-200 hover:bg-green-200'
+              } transition-colors duration-300`}
+            >
+              Easy
+            </button>
+            <button
+              onClick={() => handleDifficultyChange('medium')}
+              className={`px-4 py-2 rounded-full ${
+                difficulty === 'medium'
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-gray-200 hover:bg-yellow-200'
+              } transition-colors duration-300`}
+            >
+              Medium
+            </button>
+            <button
+              onClick={() => handleDifficultyChange('hard')}
+              className={`px-4 py-2 rounded-full ${
+                difficulty === 'hard'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-200 hover:bg-red-200'
+              } transition-colors duration-300`}
+            >
+              Hard
+            </button>
           </div>
-          <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-secondary/10 text-game-secondary">
-            Time: {formatTime(timer)}
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Sun & Moon Puzzle</h1>
+          <p className="text-lg text-gray-600 mb-4">Score: {score}</p>
+          <div className="flex justify-center space-x-4 mb-4">
+            <button
+              onClick={handleHint}
+              disabled={hintCooldown > 0}
+              className={`px-4 py-2 rounded-full ${
+                hintCooldown > 0
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-game-primary text-white hover:bg-game-secondary'
+              } transition-colors duration-300 shadow-md`}
+            >
+              {hintCooldown > 0 ? `Hint (${hintCooldown}s)` : 'Hint'}
+            </button>
+            <button
+              onClick={undoLastMove}
+              disabled={moveHistory.length === 0}
+              className={`px-4 py-2 rounded-full ${
+                moveHistory.length === 0
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-yellow-500 text-white hover:bg-yellow-600'
+              } transition-colors duration-300 shadow-md`}
+            >
+              Undo
+            </button>
           </div>
         </div>
-        <div className="flex justify-center space-x-4 mb-4">
-          <button
-            onClick={() => handleDifficultyChange('easy')}
-            className={`px-4 py-2 rounded-full ${
-              difficulty === 'easy'
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-200 hover:bg-green-200'
-            } transition-colors duration-300`}
-          >
-            Easy
-          </button>
-          <button
-            onClick={() => handleDifficultyChange('medium')}
-            className={`px-4 py-2 rounded-full ${
-              difficulty === 'medium'
-                ? 'bg-yellow-500 text-white'
-                : 'bg-gray-200 hover:bg-yellow-200'
-            } transition-colors duration-300`}
-          >
-            Medium
-          </button>
-          <button
-            onClick={() => handleDifficultyChange('hard')}
-            className={`px-4 py-2 rounded-full ${
-              difficulty === 'hard'
-                ? 'bg-red-500 text-white'
-                : 'bg-gray-200 hover:bg-red-200'
-            } transition-colors duration-300`}
-          >
-            Hard
-          </button>
-        </div>
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">Sun & Moon Puzzle</h1>
-        <p className="text-lg text-gray-600 mb-4">Score: {score}</p>
-        <div className="flex justify-center space-x-4 mb-4">
-          <button
-            onClick={handleHint}
-            disabled={hintCooldown > 0}
-            className={`px-4 py-2 rounded-full ${
-              hintCooldown > 0
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-game-primary text-white hover:bg-game-secondary'
-            } transition-colors duration-300 shadow-md`}
-          >
-            {hintCooldown > 0 ? `Hint (${hintCooldown}s)` : 'Hint'}
-          </button>
-          <button
-            onClick={undoLastMove}
-            disabled={moveHistory.length === 0}
-            className={`px-4 py-2 rounded-full ${
-              moveHistory.length === 0
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-yellow-500 text-white hover:bg-yellow-600'
-            } transition-colors duration-300 shadow-md`}
-          >
-            Undo
-          </button>
-        </div>
-      </div>
 
-      <motion.div
-        className="grid grid-cols-6 gap-2 bg-white p-4 rounded-lg shadow-lg"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        {blocks.map((block) => (
-          <GameBlock
-            key={block.id}
-            block={block}
-            onClick={() => handleBlockClick(block.id)}
-          />
-        ))}
-      </motion.div>
-
-      <div className="mt-8 space-x-4">
-        <button
-          onClick={initializeBoard}
-          className="px-6 py-2 bg-game-primary text-white rounded-full hover:bg-game-secondary transition-colors duration-300 shadow-md"
+        <motion.div
+          className="grid grid-cols-6 gap-2 bg-white p-4 rounded-lg shadow-lg"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
         >
-          Reset Board
-        </button>
+          {blocks.map((block) => (
+            <GameBlock
+              key={block.id}
+              block={block}
+              onClick={() => handleBlockClick(block.id)}
+            />
+          ))}
+        </motion.div>
+
+        <div className="mt-8 space-x-4">
+          <button
+            onClick={initializeBoard}
+            className="px-6 py-2 bg-game-primary text-white rounded-full hover:bg-game-secondary transition-colors duration-300 shadow-md"
+          >
+            Reset Board
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
