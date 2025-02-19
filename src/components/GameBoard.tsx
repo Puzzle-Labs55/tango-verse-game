@@ -18,22 +18,42 @@ interface Move {
   previousType: 'sun' | 'moon' | null;
 }
 
-type Difficulty = 'easy' | 'medium' | 'hard';
+type Difficulty = 'easy' | 'medium' | 'hard' | 'very-hard';
 
 const GRID_SIZE = 6;
-const HINT_COOLDOWN = 20; // seconds
+const HINT_COOLDOWN = 20;
 
 const DIFFICULTY_SETTINGS = {
-  easy: { cellsToRemove: 0.4, maxConsecutive: 2 },
-  medium: { cellsToRemove: 0.5, maxConsecutive: 3 },
-  hard: { cellsToRemove: 0.6, maxConsecutive: 3 }
+  'easy': { cellsToRemove: 0.4, maxConsecutive: 2 },
+  'medium': { cellsToRemove: 0.5, maxConsecutive: 3 },
+  'hard': { cellsToRemove: 0.6, maxConsecutive: 3 },
+  'very-hard': { cellsToRemove: 0.7, maxConsecutive: 3 }
+};
+
+const getDifficultyForLevel = (level: number): Difficulty => {
+  // Calculate the position within a cycle (cycles are 5 levels long)
+  const cyclePosition = (level - 1) % 5;
+  
+  switch (cyclePosition) {
+    case 0: // First level in cycle
+    case 1: // Second level in cycle
+      return 'easy';
+    case 2: // Third level in cycle
+      return 'medium';
+    case 3: // Fourth level in cycle
+      return 'hard';
+    case 4: // Fifth level in cycle
+      return 'very-hard';
+    default:
+      return 'easy';
+  }
 };
 
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
-  const [difficulty, setDifficulty] = useState<Difficulty>('easy');
+  const [difficulty, setDifficulty] = useState<Difficulty>(getDifficultyForLevel(1));
   const [isPuzzleSolved, setIsPuzzleSolved] = useState(false);
   const [solution, setSolution] = useState<Block[]>([]);
   const [timer, setTimer] = useState(0);
@@ -41,7 +61,19 @@ export const GameBoard = () => {
   const [hintCooldown, setHintCooldown] = useState(0);
   const [moveHistory, setMoveHistory] = useState<Move[]>([]);
   const [showTutorial, setShowTutorial] = useState(false);
-  
+
+  useEffect(() => {
+    const newDifficulty = getDifficultyForLevel(level);
+    setDifficulty(newDifficulty);
+    initializeBoard();
+
+    // Show difficulty change message
+    toast({
+      title: `Level ${level}`,
+      description: `Difficulty: ${newDifficulty.charAt(0).toUpperCase() + newDifficulty.slice(1)}`,
+    });
+  }, [level]);
+
   // Timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -547,38 +579,6 @@ export const GameBoard = () => {
             <div className="inline-flex items-center px-4 py-1 rounded-full bg-game-secondary/10 text-game-secondary">
               Time: {formatTime(timer)}
             </div>
-          </div>
-          <div className="flex justify-center space-x-4 mb-4">
-            <button
-              onClick={() => handleDifficultyChange('easy')}
-              className={`px-4 py-2 rounded-full ${
-                difficulty === 'easy'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-200 hover:bg-green-200'
-              } transition-colors duration-300`}
-            >
-              Easy
-            </button>
-            <button
-              onClick={() => handleDifficultyChange('medium')}
-              className={`px-4 py-2 rounded-full ${
-                difficulty === 'medium'
-                  ? 'bg-yellow-500 text-white'
-                  : 'bg-gray-200 hover:bg-yellow-200'
-              } transition-colors duration-300`}
-            >
-              Medium
-            </button>
-            <button
-              onClick={() => handleDifficultyChange('hard')}
-              className={`px-4 py-2 rounded-full ${
-                difficulty === 'hard'
-                  ? 'bg-red-500 text-white'
-                  : 'bg-gray-200 hover:bg-red-200'
-              } transition-colors duration-300`}
-            >
-              Hard
-            </button>
           </div>
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Sun & Moon Puzzle</h1>
           <p className="text-lg text-gray-600 mb-4">Score: {score}</p>
