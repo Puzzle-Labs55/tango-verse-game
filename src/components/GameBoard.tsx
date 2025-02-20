@@ -11,6 +11,7 @@ export interface Block {
   rotation: number;
   isLocked: boolean;
   isHint: boolean;
+  isInvalid?: boolean;
 }
 
 interface Move {
@@ -415,6 +416,53 @@ export const GameBoard = () => {
     }
   };
 
+  const checkValidMove = (newBlocks: Block[], changedIndex: number): boolean => {
+    const row = Math.floor(changedIndex / GRID_SIZE);
+    const col = changedIndex % GRID_SIZE;
+    
+    // Get row and column cells
+    const rowCells = newBlocks.slice(row * GRID_SIZE, (row + 1) * GRID_SIZE);
+    const colCells = Array.from({ length: GRID_SIZE }, (_, i) => newBlocks[i * GRID_SIZE + col]);
+    
+    // Count suns and moons in row and column
+    const rowSuns = rowCells.filter(b => b.type === 'sun').length;
+    const rowMoons = rowCells.filter(b => b.type === 'moon').length;
+    const colSuns = colCells.filter(b => b.type === 'sun').length;
+    const colMoons = colCells.filter(b => b.type === 'moon').length;
+    
+    // Check for three consecutive same types
+    let hasConsecutive = false;
+    const checkConsecutive = (cells: Block[]) => {
+      let consecutiveSuns = 0;
+      let consecutiveMoons = 0;
+      
+      for (const cell of cells) {
+        if (cell.type === 'sun') {
+          consecutiveSuns++;
+          consecutiveMoons = 0;
+        } else if (cell.type === 'moon') {
+          consecutiveMoons++;
+          consecutiveSuns = 0;
+        } else {
+          consecutiveSuns = 0;
+          consecutiveMoons = 0;
+        }
+        
+        if (consecutiveSuns >= 3 || consecutiveMoons >= 3) {
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    hasConsecutive = checkConsecutive(rowCells) || checkConsecutive(colCells);
+    
+    // Return true if any rule is violated
+    return (rowSuns > GRID_SIZE / 2 || rowMoons > GRID_SIZE / 2 ||
+            colSuns > GRID_SIZE / 2 || colMoons > GRID_SIZE / 2 ||
+            hasConsecutive);
+  };
+
   const handleBlockClick = (id: number) => {
     setBlocks((prevBlocks: Block[]) => {
       const block = prevBlocks.find(b => b.id === id);
@@ -434,10 +482,26 @@ export const GameBoard = () => {
           ? { 
               ...block, 
               type: block.type === null ? 'sun' as const : 
-                    block.type === 'sun' ? 'moon' as const : null
+                    block.type === 'sun' ? 'moon' as const : null,
+              isInvalid: false
             }
           : block
       );
+
+      // Wait 500ms before checking validity
+      setTimeout(() => {
+        setBlocks(currentBlocks => {
+          const isInvalid = checkValidMove(currentBlocks, id);
+          if (isInvalid) {
+            return currentBlocks.map(block =>
+              block.id === id
+                ? { ...block, isInvalid: true }
+                : block
+            );
+          }
+          return currentBlocks;
+        });
+      }, 500);
 
       setTimeout(() => checkSolution(newBlocks), 0);
       return newBlocks;
