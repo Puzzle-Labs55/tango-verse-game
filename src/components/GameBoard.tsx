@@ -49,6 +49,54 @@ const getDifficultyForLevel = (level: number): Difficulty => {
   }
 };
 
+const getLogicalExplanation = (newBlocks: Block[], hintCell: number): string => {
+  const row = Math.floor(hintCell / GRID_SIZE);
+  const col = hintCell % GRID_SIZE;
+  
+  const rowCells = newBlocks.slice(row * GRID_SIZE, (row + 1) * GRID_SIZE);
+  const colCells = Array.from({ length: GRID_SIZE }, (_, i) => newBlocks[i * GRID_SIZE + col]);
+  
+  const rowSuns = rowCells.filter(b => b.type === 'sun').length;
+  const rowMoons = rowCells.filter(b => b.type === 'moon').length;
+  const colSuns = colCells.filter(b => b.type === 'sun').length;
+  const colMoons = colCells.filter(b => b.type === 'moon').length;
+
+  // Check for consecutive patterns
+  const checkConsecutivePattern = (cells: Block[], index: number) => {
+    if (index > 0 && index < cells.length - 1) {
+      if (cells[index - 1].type === cells[index + 1].type) {
+        return `To avoid three ${cells[index - 1].type}s in a row`;
+      }
+    }
+    return null;
+  };
+
+  // Get row and column based explanations
+  const rowPattern = checkConsecutivePattern(rowCells, col);
+  const colPattern = checkConsecutivePattern(colCells, row);
+
+  if (rowSuns === GRID_SIZE / 2) {
+    return "This cell must be a moon because this row already has the maximum number of suns";
+  }
+  if (rowMoons === GRID_SIZE / 2) {
+    return "This cell must be a sun because this row already has the maximum number of moons";
+  }
+  if (colSuns === GRID_SIZE / 2) {
+    return "This cell must be a moon because this column already has the maximum number of suns";
+  }
+  if (colMoons === GRID_SIZE / 2) {
+    return "This cell must be a sun because this column already has the maximum number of moons";
+  }
+  if (rowPattern) {
+    return rowPattern;
+  }
+  if (colPattern) {
+    return colPattern;
+  }
+
+  return "This cell's value can be deduced from the surrounding pattern";
+};
+
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [initialBlocks, setInitialBlocks] = useState<Block[]>([]);
@@ -108,6 +156,7 @@ export const GameBoard = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+
   };
 
   const generateValidBoard = (): Block[] => {
@@ -585,6 +634,8 @@ export const GameBoard = () => {
       return;
     }
 
+    const explanation = getLogicalExplanation(blocks, hintCell);
+    
     setBlocks(prevBlocks => 
       prevBlocks.map((block, index) => 
         index === hintCell
@@ -592,6 +643,11 @@ export const GameBoard = () => {
           : block
       )
     );
+
+    toast({
+      title: "Hint",
+      description: explanation,
+    });
 
     setHintCooldown(HINT_COOLDOWN);
 
