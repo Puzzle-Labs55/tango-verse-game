@@ -7,15 +7,16 @@ import { Sun, Moon } from "lucide-react";
 interface GameBlockProps {
   block: Block;
   onClick: () => void;
+  isSelected?: boolean;
 }
 
-export const GameBlock: React.FC<GameBlockProps> = ({ block, onClick }) => {
+export const GameBlock: React.FC<GameBlockProps> = ({ block, onClick, isSelected }) => {
   return (
     <motion.div
       className={`w-12 h-12 md:w-16 md:h-16 cursor-pointer relative bg-white rounded-lg shadow-md 
         ${block.isLocked ? 'bg-gray-50' : 'hover:bg-gray-50'}
         ${block.isHint ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
-        ${block.isInvalid ? 'bg-red-100 before:absolute before:inset-0 before:bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#ff000020_10px,#ff000020_20px)]' : ''}`}
+        ${isSelected ? 'ring-2 ring-blue-400' : ''}`}
       whileHover={{ scale: block.isLocked ? 1 : 1.05 }}
       whileTap={{ scale: block.isLocked ? 1 : 0.95 }}
       onClick={onClick}

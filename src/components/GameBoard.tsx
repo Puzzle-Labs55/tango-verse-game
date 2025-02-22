@@ -7,7 +7,7 @@ import { GameTutorial } from "./GameTutorial";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 
-interface Block {
+export interface Block {
   id: number;
   type: "sun" | "moon" | null;
   rotation: number;
@@ -15,191 +15,11 @@ interface Block {
   isHint: boolean;
 }
 
-const GRID_SIZE = 6;
-
-const generateValidBoard = (): Block[] => {
-  let board: Block[] = [];
-  let placedSun = false;
-  let placedMoon = false;
-
-  for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
-    board.push({
-      id: i,
-      type: null,
-      rotation: 0,
-      isLocked: false,
-      isHint: false,
-    });
-  }
-
-  // Function to get valid neighbors for a given block
-  const getValidNeighbors = (index: number): number[] => {
-    const neighbors: number[] = [];
-    const row = Math.floor(index / GRID_SIZE);
-    const col = index % GRID_SIZE;
-
-    // Check top
-    if (row > 0) neighbors.push(index - GRID_SIZE);
-    // Check bottom
-    if (row < GRID_SIZE - 1) neighbors.push(index + GRID_SIZE);
-    // Check left
-    if (col > 0) neighbors.push(index - 1);
-    // Check right
-    if (col < GRID_SIZE - 1) neighbors.push(index + 1);
-
-    return neighbors;
-  };
-
-  // Place initial Sun and Moon
-  let sunIndex = Math.floor(Math.random() * GRID_SIZE * GRID_SIZE);
-  board[sunIndex] = { ...board[sunIndex], type: "sun" };
-  placedSun = true;
-
-  let moonIndex = Math.floor(Math.random() * GRID_SIZE * GRID_SIZE);
-  while (moonIndex === sunIndex) {
-    moonIndex = Math.floor(Math.random() * GRID_SIZE * GRID_SIZE);
-  }
-  board[moonIndex] = { ...board[moonIndex], type: "moon" };
-  placedMoon = true;
-
-  // Fill the rest of the board
-  for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
-    if (board[i].type === null) {
-      const neighbors = getValidNeighbors(i);
-      let sunCount = 0;
-      let moonCount = 0;
-
-      neighbors.forEach((neighborIndex) => {
-        if (board[neighborIndex].type === "sun") sunCount++;
-        if (board[neighborIndex].type === "moon") moonCount++;
-      });
-
-      // Determine block type based on neighbor count
-      if (sunCount > moonCount) {
-        board[i] = { ...board[i], type: "sun" };
-        placedSun = true;
-      } else if (moonCount > sunCount) {
-        board[i] = { ...board[i], type: "moon" };
-        placedMoon = true;
-      } else {
-        // If counts are equal, randomly assign a type
-        const type = Math.random() > 0.5 ? "sun" : "moon";
-        board[i] = { ...board[i], type: type };
-        if (type === "sun") placedSun = true;
-        else placedMoon = true;
-      }
-    }
-  }
-
-  // Ensure at least one Sun and one Moon are placed
-  if (!placedSun) {
-    const emptyBlocks = board.filter((block) => block.type === null);
-    if (emptyBlocks.length > 0) {
-      const randomIndex = Math.floor(Math.random() * emptyBlocks.length);
-      board[emptyBlocks[randomIndex].id] = {
-        ...board[emptyBlocks[randomIndex].id],
-        type: "sun",
-      };
-    } else {
-      const randomIndex = Math.floor(Math.random() * board.length);
-      board[randomIndex] = { ...board[randomIndex], type: "sun" };
-    }
-  }
-
-  if (!placedMoon) {
-    const emptyBlocks = board.filter((block) => block.type === null);
-    if (emptyBlocks.length > 0) {
-      const randomIndex = Math.floor(Math.random() * emptyBlocks.length);
-      board[emptyBlocks[randomIndex].id] = {
-        ...board[emptyBlocks[randomIndex].id],
-        type: "moon",
-      };
-    } else {
-      const randomIndex = Math.floor(Math.random() * board.length);
-      board[randomIndex] = { ...board[randomIndex], type: "moon" };
-    }
-  }
-
-  return board;
-};
-
-const createPuzzle = (solution: Block[], difficulty: string): Block[] => {
-  let puzzle = solution.map((block) => ({ ...block })); // Deep copy
-
-  const applyDifficulty = (
-    puzzle: Block[],
-    difficulty: string
-  ): Block[] => {
-    let hintCount: number;
-    let lockedCount: number;
-
-    switch (difficulty) {
-      case "easy":
-        hintCount = 7;
-        lockedCount = 4;
-        break;
-      case "medium":
-        hintCount = 5;
-        lockedCount = 6;
-        break;
-      case "hard":
-        hintCount = 3;
-        lockedCount = 8;
-        break;
-      case "very-hard":
-        hintCount = 1;
-        lockedCount = 10;
-        break;
-      default:
-        hintCount = 6;
-        lockedCount = 5;
-        break;
-    }
-
-    // Apply hints
-    let hintIndices: number[] = [];
-    while (hintIndices.length < hintCount) {
-      const index = Math.floor(Math.random() * puzzle.length);
-      if (!hintIndices.includes(index)) {
-        hintIndices.push(index);
-      }
-    }
-
-    hintIndices.forEach((index) => {
-      puzzle[index] = { ...puzzle[index], isHint: true };
-    });
-
-    // Apply locks
-    let lockIndices: number[] = [];
-    while (lockIndices.length < lockedCount) {
-      const index = Math.floor(Math.random() * puzzle.length);
-      if (!lockIndices.includes(index) && !puzzle[index].isHint) {
-        lockIndices.push(index);
-      }
-    }
-
-    lockIndices.forEach((index) => {
-      puzzle[index] = { ...puzzle[index], isLocked: true };
-    });
-
-    // Clear non-hint and non-locked blocks
-    puzzle = puzzle.map((block) => {
-      if (!block.isHint && !block.isLocked) {
-        return { ...block, type: null, rotation: 0 };
-      }
-      return block;
-    });
-
-    return puzzle;
-  };
-
-  puzzle = applyDifficulty(puzzle, difficulty);
-  return puzzle;
-};
-
 interface GameBoardProps {
   level: number;
 }
+
+const GRID_SIZE = 6;
 
 const getDifficultyForLevel = (level: number): string => {
   const cyclePosition = (level - 1) % 5;
@@ -276,9 +96,9 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     const fetchLevel = async () => {
       try {
         const { data, error } = await supabase
-          .from("puzzle_levels")
-          .select("initial_state, solution")
-          .eq("id", level)
+          .from('puzzle_levels')
+          .select('initial_state, solution')
+          .eq('id', level)
           .single();
 
         if (error) {
@@ -286,7 +106,6 @@ export const GameBoard = ({ level }: GameBoardProps) => {
         }
 
         if (data) {
-          // Type assertion to ensure the JSON data matches our Block[] type
           setBlocks(data.initial_state as Block[]);
           setInitialBlocks(data.initial_state as Block[]);
           setSolution(data.solution as Block[]);
@@ -297,16 +116,14 @@ export const GameBoard = ({ level }: GameBoardProps) => {
 
         toast({
           title: `Level ${level}`,
-          description: `Difficulty: ${
-            newDifficulty.charAt(0).toUpperCase() + newDifficulty.slice(1)
-          }`,
+          description: `Difficulty: ${newDifficulty.charAt(0).toUpperCase() + newDifficulty.slice(1)}`,
         });
       } catch (error) {
-        console.error("Error fetching level:", error);
+        console.error('Error fetching level:', error);
         toast({
           title: "Error loading level",
           description: "Please try again later",
-          variant: "destructive",
+          variant: "destructive"
         });
       }
     };
