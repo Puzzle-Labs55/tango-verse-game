@@ -97,6 +97,46 @@ const getLogicalExplanation = (newBlocks: Block[], hintCell: number): string => 
   return "This cell's value can be deduced from the surrounding pattern";
 };
 
+const hasLogicalHint = (board: Block[]): boolean => {
+  const emptyCells = board
+    .map((block, index) => ({ ...block, index }))
+    .filter(block => !block.isLocked && block.type === null);
+
+  for (const cell of emptyCells) {
+    const row = Math.floor(cell.index / GRID_SIZE);
+    const col = cell.index % GRID_SIZE;
+    
+    // Check rows
+    const rowCells = board.slice(row * GRID_SIZE, (row + 1) * GRID_SIZE);
+    const rowSuns = rowCells.filter(b => b.type === 'sun').length;
+    const rowMoons = rowCells.filter(b => b.type === 'moon').length;
+    
+    // Check columns
+    const colCells = Array.from({ length: GRID_SIZE }, (_, i) => board[i * GRID_SIZE + col]);
+    const colSuns = colCells.filter(b => b.type === 'sun').length;
+    const colMoons = colCells.filter(b => b.type === 'moon').length;
+
+    // Check consecutive patterns
+    const hasConsecutive = (cells: Block[], index: number) => {
+      if (index > 0 && index < cells.length - 1) {
+        if (cells[index - 1].type === cells[index + 1].type) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // If any constraint is found, there's a logical hint
+    if (rowSuns === GRID_SIZE / 2 || rowMoons === GRID_SIZE / 2 ||
+        colSuns === GRID_SIZE / 2 || colMoons === GRID_SIZE / 2 ||
+        hasConsecutive(rowCells, col) || hasConsecutive(colCells, row)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 export const GameBoard = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [initialBlocks, setInitialBlocks] = useState<Block[]>([]);
@@ -326,61 +366,60 @@ export const GameBoard = () => {
     return constrainedCells >= emptyCells;
   };
 
-  const generatePredefinedBoard = (): Block[] => {
-    return Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => ({
-      id: index,
-      type: [
-        'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
-        'moon', 'sun', 'moon', 'sun', 'moon', 'sun',
-        'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
-        'moon', 'sun', 'moon', 'sun', 'moon', 'sun',
-        'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
-        'moon', 'sun', 'moon', 'sun', 'moon', 'sun'
-      ][index] as 'sun' | 'moon',
-      rotation: 0,
-      isLocked: false,
-      isHint: false
-    }));
-  };
-
   const createPuzzle = (solution: Block[]): Block[] => {
     let puzzle = [...solution];
     const settings = DIFFICULTY_SETTINGS[difficulty];
     const cellsToRemove = Math.floor(GRID_SIZE * GRID_SIZE * settings.cellsToRemove);
     const removedCells = new Set<number>();
-    
+  
+    // Keep track of critical cells that force patterns
     const criticalHints = new Set<number>();
-    
+  
+    // Ensure each row and column has at least one fixed cell
     for (let i = 0; i < GRID_SIZE; i++) {
       const rowStart = i * GRID_SIZE;
       const rowHint = rowStart + Math.floor(Math.random() * GRID_SIZE);
       criticalHints.add(rowHint);
-      
+    
       const colHint = i + (Math.floor(Math.random() * GRID_SIZE) * GRID_SIZE);
       criticalHints.add(colHint);
     }
+  
+    const attemptRemoveCell = (index: number): boolean => {
+      if (criticalHints.has(index)) return false;
     
+      const testPuzzle = puzzle.map((block, i) => ({
+        ...block,
+        type: i === index ? null : block.type,
+        isLocked: i !== index && !removedCells.has(i)
+      }));
+    
+      // Check if removing this cell maintains a unique solution
+      // AND ensures there's at least one logical hint available
+      return hasUniqueSolution(testPuzzle) && hasLogicalHint(testPuzzle);
+    };
+  
     while (removedCells.size < cellsToRemove) {
-      const randomIndex = Math.floor(Math.random() * (GRID_SIZE * GRID_SIZE));
+      const availableCells = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => i)
+        .filter(i => !removedCells.has(i) && !criticalHints.has(i));
       
-      if (criticalHints.has(randomIndex)) continue;
+      if (availableCells.length === 0) break;
       
-      const testPuzzle = [...puzzle];
-      testPuzzle[randomIndex] = { ...testPuzzle[randomIndex], type: null };
-      
-      if (!removedCells.has(randomIndex) && hasUniqueSolution(testPuzzle)) {
+      // Try cells in random order
+      const randomIndex = availableCells[Math.floor(Math.random() * availableCells.length)];
+    
+      if (attemptRemoveCell(randomIndex)) {
         removedCells.add(randomIndex);
+        puzzle[randomIndex] = { ...puzzle[randomIndex], type: null };
       }
     }
 
-    puzzle = puzzle.map((block, index) => ({
+    return puzzle.map((block, index) => ({
       ...block,
       type: removedCells.has(index) ? null : block.type,
       isLocked: !removedCells.has(index),
       isHint: false
     }));
-
-    return puzzle;
   };
 
   const isValidBoard = (board: Block[]): boolean => {
