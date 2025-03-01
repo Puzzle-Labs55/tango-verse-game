@@ -6,6 +6,8 @@ import { Sun, Moon, HelpCircle } from "lucide-react";
 import { GameTutorial } from "./GameTutorial";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export interface Block {
   id: number;
@@ -17,6 +19,7 @@ export interface Block {
 
 interface GameBoardProps {
   level: number;
+  onLevelComplete?: (level: number, stars: number) => void;
 }
 
 const GRID_SIZE = 6;
@@ -109,7 +112,7 @@ const checkColumnRuleViolation = (board: Block[], colIndex: number): boolean => 
   return false;
 };
 
-export const GameBoard = ({ level }: GameBoardProps) => {
+export const GameBoard = ({ level, onLevelComplete }: GameBoardProps) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [initialBlocks, setInitialBlocks] = useState<Block[]>([]);
   const [solution, setSolution] = useState<Block[]>([]);
@@ -119,7 +122,10 @@ export const GameBoard = ({ level }: GameBoardProps) => {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [hintUsed, setHintUsed] = useState(0);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
-
+  const [showLevelCompletedDialog, setShowLevelCompletedDialog] = useState(false);
+  const [showLevelFailedDialog, setShowLevelFailedDialog] = useState(false);
+  const [boardFilled, setBoardFilled] = useState(false);
+  
   const handleBlockClick = (index: number) => {
     if (blocks[index].isLocked) {
       toast({
@@ -183,6 +189,20 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     
     setBlocks(newBlocks);
     setMoveCount(moveCount + 1);
+    
+    // Check if board is completely filled (no null cells)
+    const isBoardFilled = !newBlocks.some(block => block.type === null);
+    setBoardFilled(isBoardFilled);
+    
+    // If the board is filled, check if it's correct
+    if (isBoardFilled) {
+      const isCorrect = checkWinCondition();
+      if (isCorrect) {
+        setShowLevelCompletedDialog(true);
+      } else {
+        setShowLevelFailedDialog(true);
+      }
+    }
   };
 
   const checkWinCondition = useCallback(() => {
@@ -218,6 +238,11 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     setMoveHistory(moveHistory.slice(0, -1));
     setMoveCount(moveCount - 1);
     setErrorMessages([]);
+    
+    // Reset dialog states when undoing
+    setShowLevelCompletedDialog(false);
+    setShowLevelFailedDialog(false);
+    setBoardFilled(false);
   };
 
   // Find and provide a logical hint without revealing the solution
@@ -398,21 +423,84 @@ export const GameBoard = ({ level }: GameBoardProps) => {
   };
 
   useEffect(() => {
-    if (checkWinCondition()) {
+    if (checkWinCondition() && boardFilled) {
       const starsEarned = calculateStars();
       toast({
         title: "Congratulations!",
         description: `You solved the puzzle in ${moveCount} moves with ${hintUsed} hints! You earned ${starsEarned} stars!`,
         duration: 5000,
       });
+      setShowLevelCompletedDialog(true);
     }
-  }, [checkWinCondition, moveCount, hintUsed]);
+  }, [checkWinCondition, moveCount, hintUsed, boardFilled]);
 
   const calculateStars = () => {
     // Calculate stars based on move count and hints used
     if (hintUsed === 0 && moveCount <= 15) return 3;
     if (hintUsed <= 1 && moveCount <= 20) return 2;
     return 1;
+  };
+
+  const handleNextLevel = async () => {
+    // Save completion data if needed
+    const starsEarned = calculateStars();
+    
+    // If onLevelComplete callback is provided, call it
+    if (onLevelComplete) {
+      onLevelComplete(level, starsEarned);
+    }
+    
+    // Load the next level
+    try {
+      // Try to fetch the next level
+      const { data, error } = await supabase
+        .from('puzzle_levels')
+        .select('id')
+        .eq('id', level + 1)
+        .single();
+      
+      if (error || !data) {
+        // Create a new level if it doesn't exist
+        const newDifficulty = getDifficultyForLevel(level + 1);
+        const { initialState, solution } = createLogicalPuzzle(newDifficulty);
+        
+        // Save the new puzzle level to Supabase
+        await supabase.from('puzzle_levels').upsert({
+          id: level + 1,
+          difficulty: newDifficulty as any,
+          initial_state: initialState,
+          solution: solution,
+          created_at: new Date().toISOString()
+        });
+      }
+      
+      // Redirect to the new level
+      window.location.href = `/?level=${level + 1}`;
+      
+    } catch (error) {
+      console.error('Error loading next level:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load the next level. Please try again.",
+        variant: "destructive",
+      });
+    }
+    
+    setShowLevelCompletedDialog(false);
+  };
+
+  const resetBoard = () => {
+    setBlocks(initialBlocks);
+    setMoveHistory([]);
+    setMoveCount(0);
+    setErrorMessages([]);
+    setShowLevelFailedDialog(false);
+    setShowLevelCompletedDialog(false);
+    setBoardFilled(false);
+    toast({
+      title: "Board Reset",
+      description: "The board has been reset to its initial state.",
+    });
   };
 
   // This function creates a logically solvable initial board state
@@ -554,18 +642,10 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     setMoveCount(0);
     setHintUsed(0);
     setErrorMessages([]);
+    setShowLevelCompletedDialog(false);
+    setShowLevelFailedDialog(false);
+    setBoardFilled(false);
   }, [level]);
-
-  const resetBoard = () => {
-    setBlocks(initialBlocks);
-    setMoveHistory([]);
-    setMoveCount(0);
-    setErrorMessages([]);
-    toast({
-      title: "Board Reset",
-      description: "The board has been reset to its initial state.",
-    });
-  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
@@ -639,6 +719,58 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       <div className="mt-4 text-center p-2 bg-white rounded-lg shadow-sm">
         <p className="font-medium">Moves: {moveCount} | Hints: {hintUsed}</p>
       </div>
+      
+      {/* Level Completed Dialog */}
+      <Dialog open={showLevelCompletedDialog} onOpenChange={setShowLevelCompletedDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-green-600">Level Cleared!</DialogTitle>
+            <DialogDescription>
+              Congratulations! You've completed Level {level} with {calculateStars()} stars.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center my-4">
+            <div className="flex space-x-2">
+              {Array.from({ length: 3 }, (_, i) => (
+                <Sun 
+                  key={i} 
+                  className={`w-8 h-8 ${
+                    i < calculateStars() ? 'text-yellow-500' : 'text-gray-300'
+                  }`} 
+                />
+              ))}
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button onClick={resetBoard} variant="outline" className="w-full">
+              Play Again
+            </Button>
+            <Button onClick={handleNextLevel} className="w-full bg-green-600 hover:bg-green-700">
+              Next Level
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Level Failed Dialog */}
+      <Dialog open={showLevelFailedDialog} onOpenChange={setShowLevelFailedDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-red-600">Not Quite Right</DialogTitle>
+            <DialogDescription>
+              Your solution doesn't match the correct pattern. Would you like to try again?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button onClick={handleUndo} variant="outline" className="w-full">
+              Undo Last Move
+            </Button>
+            <Button onClick={resetBoard} className="w-full bg-blue-600 hover:bg-blue-700">
+              Reset Board
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
