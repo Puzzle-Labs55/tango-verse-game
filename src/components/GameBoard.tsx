@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
 import { toast } from "@/components/ui/use-toast";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, HelpCircle } from "lucide-react";
 import { GameTutorial } from "./GameTutorial";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
@@ -47,6 +46,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
   const [moveHistory, setMoveHistory] = useState<Block[][]>([]);
   const [moveCount, setMoveCount] = useState(0);
   const [difficulty, setDifficulty] = useState<string>("easy");
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
   const handleBlockClick = (index: number) => {
     if (blocks[index].isLocked) {
@@ -233,9 +233,10 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       </div>
       <div className="flex justify-between w-full max-w-md mt-4">
         <button
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 flex items-center gap-2"
           onClick={() => setIsTutorialOpen(true)}
         >
+          <HelpCircle size={16} />
           How to Play
         </button>
         <button
