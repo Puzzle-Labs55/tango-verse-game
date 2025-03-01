@@ -238,18 +238,24 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       return;
     }
 
+    // Clear previous hints
+    const newBlocks = [...blocks].map(block => ({
+      ...block,
+      isHint: false
+    }));
+
     // Find a cell where we can provide logical reasoning
     let hintGiven = false;
     
     // Try to find a row that has 5 filled cells (one missing)
     for (let i = 0; i < GRID_SIZE; i++) {
       const rowCells = Array(GRID_SIZE).fill(0).map((_, j) => i * GRID_SIZE + j);
-      const emptiesInRow = rowCells.filter(idx => blocks[idx].type === null);
+      const emptiesInRow = rowCells.filter(idx => newBlocks[idx].type === null);
       
       if (emptiesInRow.length === 1) {
         const emptyIdx = emptiesInRow[0];
-        const suns = rowCells.filter(idx => blocks[idx].type === "sun").length;
-        const moons = rowCells.filter(idx => blocks[idx].type === "moon").length;
+        const suns = rowCells.filter(idx => newBlocks[idx].type === "sun").length;
+        const moons = rowCells.filter(idx => newBlocks[idx].type === "moon").length;
         
         toast({
           title: "Logical Hint",
@@ -258,11 +264,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
         });
         
         // Highlight the cell without revealing the answer
-        const newBlocks = [...blocks];
-        newBlocks[emptyIdx] = {
-          ...newBlocks[emptyIdx],
-          isHint: true,
-        };
+        newBlocks[emptyIdx].isHint = true;
         
         setBlocks(newBlocks);
         setHintUsed(hintUsed + 1);
@@ -275,12 +277,12 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     if (!hintGiven) {
       for (let j = 0; j < GRID_SIZE; j++) {
         const colCells = Array(GRID_SIZE).fill(0).map((_, i) => i * GRID_SIZE + j);
-        const emptiesInCol = colCells.filter(idx => blocks[idx].type === null);
+        const emptiesInCol = colCells.filter(idx => newBlocks[idx].type === null);
         
         if (emptiesInCol.length === 1) {
           const emptyIdx = emptiesInCol[0];
-          const suns = colCells.filter(idx => blocks[idx].type === "sun").length;
-          const moons = colCells.filter(idx => blocks[idx].type === "moon").length;
+          const suns = colCells.filter(idx => newBlocks[idx].type === "sun").length;
+          const moons = colCells.filter(idx => newBlocks[idx].type === "moon").length;
           
           toast({
             title: "Logical Hint",
@@ -289,11 +291,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
           });
           
           // Highlight the cell without revealing the answer
-          const newBlocks = [...blocks];
-          newBlocks[emptyIdx] = {
-            ...newBlocks[emptyIdx],
-            isHint: true,
-          };
+          newBlocks[emptyIdx].isHint = true;
           
           setBlocks(newBlocks);
           setHintUsed(hintUsed + 1);
@@ -309,7 +307,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       for (let i = 0; i < GRID_SIZE; i++) {
         for (let j = 0; j < GRID_SIZE - 2; j++) {
           const indices = [i * GRID_SIZE + j, i * GRID_SIZE + j + 1, i * GRID_SIZE + j + 2];
-          const types = indices.map(idx => blocks[idx].type);
+          const types = indices.map(idx => newBlocks[idx].type);
           
           // If we have two of the same type with a null in between
           if (
@@ -328,11 +326,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
             });
             
             // Highlight the cell without revealing the answer
-            const newBlocks = [...blocks];
-            newBlocks[nullIdx] = {
-              ...newBlocks[nullIdx],
-              isHint: true,
-            };
+            newBlocks[nullIdx].isHint = true;
             
             setBlocks(newBlocks);
             setHintUsed(hintUsed + 1);
@@ -350,7 +344,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       for (let j = 0; j < GRID_SIZE; j++) {
         for (let i = 0; i < GRID_SIZE - 2; i++) {
           const indices = [i * GRID_SIZE + j, (i + 1) * GRID_SIZE + j, (i + 2) * GRID_SIZE + j];
-          const types = indices.map(idx => blocks[idx].type);
+          const types = indices.map(idx => newBlocks[idx].type);
           
           // If we have two of the same type with a null in between
           if (
@@ -369,11 +363,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
             });
             
             // Highlight the cell without revealing the answer
-            const newBlocks = [...blocks];
-            newBlocks[nullIdx] = {
-              ...newBlocks[nullIdx],
-              isHint: true,
-            };
+            newBlocks[nullIdx].isHint = true;
             
             setBlocks(newBlocks);
             setHintUsed(hintUsed + 1);
@@ -490,12 +480,12 @@ export const GameBoard = ({ level }: GameBoardProps) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
       <GameTutorial
         isOpen={isTutorialOpen}
         onClose={() => setIsTutorialOpen(false)}
       />
-      <h1 className="text-3xl font-bold mb-4">
+      <h1 className="text-3xl font-bold mb-4 text-gray-800">
         Level {level} ({difficulty})
       </h1>
       
@@ -504,7 +494,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       </div>
       
       {errorMessages.length > 0 && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
           <p className="font-bold">Rule Violations:</p>
           <ul className="list-disc pl-5">
             {errorMessages.map((message, idx) => (
@@ -514,7 +504,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
         </div>
       )}
       
-      <div className="grid grid-cols-6 gap-2 mb-4">
+      <div className="grid grid-cols-6 gap-2 mb-4 p-4 bg-white rounded-lg shadow-md">
         {blocks.map((block, index) => (
           <GameBlock
             key={index}
@@ -526,40 +516,40 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       
       <div className="flex flex-wrap justify-center gap-2 w-full max-w-md mt-4">
         <button
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 flex items-center gap-2"
+          className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 flex items-center gap-2 shadow-md"
           onClick={() => setIsTutorialOpen(true)}
         >
           <HelpCircle size={16} />
           How to Play
         </button>
         <button
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
+          className="px-4 py-2 bg-purple-500 text-white rounded-full hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-md"
           onClick={handleUndo}
         >
           Undo
         </button>
         <button
-          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          className="px-4 py-2 bg-yellow-500 text-white rounded-full hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 shadow-md"
           onClick={showHint}
         >
           Hint
         </button>
         <button
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+          className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 shadow-md"
           onClick={resetBoard}
         >
-          Reset Board
+          Reset
         </button>
         <button
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+          className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-md"
           onClick={displayRules}
         >
-          Show Rules
+          Rules
         </button>
       </div>
       
-      <div className="mt-4 text-center">
-        <p>Moves: {moveCount} | Hints: {hintUsed}</p>
+      <div className="mt-4 text-center p-2 bg-white rounded-lg shadow-sm">
+        <p className="font-medium">Moves: {moveCount} | Hints: {hintUsed}</p>
       </div>
     </div>
   );
