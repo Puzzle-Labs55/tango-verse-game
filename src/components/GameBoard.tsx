@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
@@ -114,7 +113,6 @@ export const GameBoard = ({ level }: GameBoardProps) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [initialBlocks, setInitialBlocks] = useState<Block[]>([]);
   const [solution, setSolution] = useState<Block[]>([]);
-  const [selectedType, setSelectedType] = useState<"sun" | "moon" | null>(null);
   const [moveHistory, setMoveHistory] = useState<Block[][]>([]);
   const [moveCount, setMoveCount] = useState(0);
   const [difficulty, setDifficulty] = useState<string>("easy");
@@ -131,24 +129,27 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       return;
     }
 
-    if (selectedType === null) {
-      toast({
-        title: "Select a Symbol",
-        description: "Please select either Sun or Moon first.",
-      });
-      return;
-    }
-
     // Clone blocks array and update the target block
     const newBlocks = [...blocks];
     
     // Save current state for undo
     setMoveHistory([...moveHistory, blocks]);
     
-    // Update block with selected type
+    // Cycle through: null -> sun -> moon -> null
+    let newType: "sun" | "moon" | null;
+    
+    if (newBlocks[index].type === null) {
+      newType = "sun";
+    } else if (newBlocks[index].type === "sun") {
+      newType = "moon";
+    } else {
+      newType = null;
+    }
+    
+    // Update block with new type
     newBlocks[index] = {
       ...newBlocks[index],
-      type: selectedType,
+      type: newType,
     };
     
     // Validate the move against rules
@@ -219,36 +220,180 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     setErrorMessages([]);
   };
 
+  // Find and provide a logical hint without revealing the solution
   const showHint = () => {
-    const unsolvedIndices = blocks.reduce((acc: number[], block, index) => {
-      if (!block.isLocked && block.type !== solution[index].type) {
+    // Find all empty cells
+    const emptyCells = blocks.reduce((acc: number[], block, index) => {
+      if (!block.isLocked && block.type === null) {
         acc.push(index);
       }
       return acc;
     }, []);
 
-    if (unsolvedIndices.length === 0) {
+    if (emptyCells.length === 0) {
       toast({
-        title: "No Hints Available",
-        description: "You've solved all the blocks correctly!",
+        title: "No Empty Cells",
+        description: "There are no empty cells to provide hints for.",
       });
       return;
     }
 
-    const randomIndex = unsolvedIndices[Math.floor(Math.random() * unsolvedIndices.length)];
-    const newBlocks = [...blocks];
-    newBlocks[randomIndex] = {
-      ...newBlocks[randomIndex],
-      isHint: true,
-      type: solution[randomIndex].type,
-    };
-    setBlocks(newBlocks);
-    setHintUsed(hintUsed + 1);
+    // Find a cell where we can provide logical reasoning
+    let hintGiven = false;
     
-    toast({
-      title: "Hint Revealed",
-      description: "A correct piece has been revealed.",
-    });
+    // Try to find a row that has 5 filled cells (one missing)
+    for (let i = 0; i < GRID_SIZE; i++) {
+      const rowCells = Array(GRID_SIZE).fill(0).map((_, j) => i * GRID_SIZE + j);
+      const emptiesInRow = rowCells.filter(idx => blocks[idx].type === null);
+      
+      if (emptiesInRow.length === 1) {
+        const emptyIdx = emptiesInRow[0];
+        const suns = rowCells.filter(idx => blocks[idx].type === "sun").length;
+        const moons = rowCells.filter(idx => blocks[idx].type === "moon").length;
+        
+        toast({
+          title: "Logical Hint",
+          description: `In Row ${i + 1}, there are already ${suns} Suns and ${moons} Moons. Each row must have exactly 3 of each.`,
+          duration: 5000,
+        });
+        
+        // Highlight the cell without revealing the answer
+        const newBlocks = [...blocks];
+        newBlocks[emptyIdx] = {
+          ...newBlocks[emptyIdx],
+          isHint: true,
+        };
+        
+        setBlocks(newBlocks);
+        setHintUsed(hintUsed + 1);
+        hintGiven = true;
+        break;
+      }
+    }
+    
+    // If no row hint was given, try columns
+    if (!hintGiven) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        const colCells = Array(GRID_SIZE).fill(0).map((_, i) => i * GRID_SIZE + j);
+        const emptiesInCol = colCells.filter(idx => blocks[idx].type === null);
+        
+        if (emptiesInCol.length === 1) {
+          const emptyIdx = emptiesInCol[0];
+          const suns = colCells.filter(idx => blocks[idx].type === "sun").length;
+          const moons = colCells.filter(idx => blocks[idx].type === "moon").length;
+          
+          toast({
+            title: "Logical Hint",
+            description: `In Column ${j + 1}, there are already ${suns} Suns and ${moons} Moons. Each column must have exactly 3 of each.`,
+            duration: 5000,
+          });
+          
+          // Highlight the cell without revealing the answer
+          const newBlocks = [...blocks];
+          newBlocks[emptyIdx] = {
+            ...newBlocks[emptyIdx],
+            isHint: true,
+          };
+          
+          setBlocks(newBlocks);
+          setHintUsed(hintUsed + 1);
+          hintGiven = true;
+          break;
+        }
+      }
+    }
+    
+    // If still no hint given, check for three-in-a-row rule
+    if (!hintGiven) {
+      // Check for potential three-in-a-row violations in rows
+      for (let i = 0; i < GRID_SIZE; i++) {
+        for (let j = 0; j < GRID_SIZE - 2; j++) {
+          const indices = [i * GRID_SIZE + j, i * GRID_SIZE + j + 1, i * GRID_SIZE + j + 2];
+          const types = indices.map(idx => blocks[idx].type);
+          
+          // If we have two of the same type with a null in between
+          if (
+            (types[0] === types[2] && types[0] !== null && types[1] === null) ||
+            (types[0] === types[1] && types[0] !== null && types[2] === null) ||
+            (types[1] === types[2] && types[1] !== null && types[0] === null)
+          ) {
+            const nullIdx = indices[types.indexOf(null)];
+            const existingType = types[0] !== null ? types[0] : types[1];
+            const oppositeType = existingType === "sun" ? "moon" : "sun";
+            
+            toast({
+              title: "Logical Hint",
+              description: `In Row ${i + 1}, you must place a ${oppositeType.toUpperCase()} to avoid three ${existingType.toUpperCase()}s in a row.`,
+              duration: 5000,
+            });
+            
+            // Highlight the cell without revealing the answer
+            const newBlocks = [...blocks];
+            newBlocks[nullIdx] = {
+              ...newBlocks[nullIdx],
+              isHint: true,
+            };
+            
+            setBlocks(newBlocks);
+            setHintUsed(hintUsed + 1);
+            hintGiven = true;
+            break;
+          }
+        }
+        if (hintGiven) break;
+      }
+    }
+    
+    // If still no hint given, do the same for columns
+    if (!hintGiven) {
+      // Check for potential three-in-a-row violations in columns
+      for (let j = 0; j < GRID_SIZE; j++) {
+        for (let i = 0; i < GRID_SIZE - 2; i++) {
+          const indices = [i * GRID_SIZE + j, (i + 1) * GRID_SIZE + j, (i + 2) * GRID_SIZE + j];
+          const types = indices.map(idx => blocks[idx].type);
+          
+          // If we have two of the same type with a null in between
+          if (
+            (types[0] === types[2] && types[0] !== null && types[1] === null) ||
+            (types[0] === types[1] && types[0] !== null && types[2] === null) ||
+            (types[1] === types[2] && types[1] !== null && types[0] === null)
+          ) {
+            const nullIdx = indices[types.indexOf(null)];
+            const existingType = types[0] !== null ? types[0] : types[1];
+            const oppositeType = existingType === "sun" ? "moon" : "sun";
+            
+            toast({
+              title: "Logical Hint",
+              description: `In Column ${j + 1}, you must place a ${oppositeType.toUpperCase()} to avoid three ${existingType.toUpperCase()}s in a row.`,
+              duration: 5000,
+            });
+            
+            // Highlight the cell without revealing the answer
+            const newBlocks = [...blocks];
+            newBlocks[nullIdx] = {
+              ...newBlocks[nullIdx],
+              isHint: true,
+            };
+            
+            setBlocks(newBlocks);
+            setHintUsed(hintUsed + 1);
+            hintGiven = true;
+            break;
+          }
+        }
+        if (hintGiven) break;
+      }
+    }
+    
+    // If no specific hint found, give a general hint
+    if (!hintGiven) {
+      toast({
+        title: "Hint",
+        description: "Remember, each row and column must have exactly 3 Suns and 3 Moons, with no three of the same type adjacent to each other.",
+        duration: 5000,
+      });
+      setHintUsed(hintUsed + 1);
+    }
   };
 
   const displayRules = () => {
@@ -354,23 +499,8 @@ export const GameBoard = ({ level }: GameBoardProps) => {
         Level {level} ({difficulty})
       </h1>
       
-      <div className="flex gap-4 mb-4">
-        <button
-          className={`p-4 rounded-lg ${
-            selectedType === 'sun' ? 'bg-yellow-200' : 'bg-white'
-          }`}
-          onClick={() => setSelectedType('sun')}
-        >
-          <Sun className="w-8 h-8 text-[#FDA161]" />
-        </button>
-        <button
-          className={`p-4 rounded-lg ${
-            selectedType === 'moon' ? 'bg-yellow-200' : 'bg-white'
-          }`}
-          onClick={() => setSelectedType('moon')}
-        >
-          <Moon className="w-8 h-8 text-[#B8BCC0]" />
-        </button>
+      <div className="mb-4 text-center">
+        <p className="text-sm text-gray-600">Tap to cycle: empty → sun → moon → empty</p>
       </div>
       
       {errorMessages.length > 0 && (
