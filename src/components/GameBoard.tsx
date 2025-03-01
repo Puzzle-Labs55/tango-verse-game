@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameBlock } from "./GameBlock";
@@ -21,6 +22,7 @@ interface GameBoardProps {
 
 const GRID_SIZE = 6;
 
+// Function to determine the difficulty based on level
 const getDifficultyForLevel = (level: number): string => {
   const cyclePosition = (level - 1) % 5;
   switch (cyclePosition) {
@@ -38,6 +40,76 @@ const getDifficultyForLevel = (level: number): string => {
   }
 };
 
+// Rules for the puzzle (these enforce a unique solution)
+// For every row:
+// - Each row must have exactly 3 suns and 3 moons
+// For every column:
+// - Each column must have exactly 3 suns and 3 moons
+// - No three adjacent cells in a row or column can be the same type
+const checkRowRuleViolation = (board: Block[], rowIndex: number): boolean => {
+  // Get all blocks in this row
+  const rowBlocks = Array(GRID_SIZE)
+    .fill(0)
+    .map((_, i) => board[rowIndex * GRID_SIZE + i]);
+  
+  // Count suns and moons (only count non-null types)
+  const suns = rowBlocks.filter(block => block.type === "sun").length;
+  const moons = rowBlocks.filter(block => block.type === "moon").length;
+  
+  const nullCells = rowBlocks.filter(block => block.type === null).length;
+  
+  // If there are already more than 3 suns or moons, rule violated
+  if (suns > 3 || moons > 3) return true;
+  
+  // If there's no way to meet the requirement with remaining cells, rule violated
+  if (suns + nullCells < 3 || moons + nullCells < 3) return true;
+  
+  // Check for 3 adjacent same types
+  for (let i = 0; i < GRID_SIZE - 2; i++) {
+    if (
+      rowBlocks[i].type !== null &&
+      rowBlocks[i].type === rowBlocks[i + 1].type &&
+      rowBlocks[i].type === rowBlocks[i + 2].type
+    ) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+const checkColumnRuleViolation = (board: Block[], colIndex: number): boolean => {
+  // Get all blocks in this column
+  const columnBlocks = Array(GRID_SIZE)
+    .fill(0)
+    .map((_, i) => board[i * GRID_SIZE + colIndex]);
+  
+  // Count suns and moons (only count non-null types)
+  const suns = columnBlocks.filter(block => block.type === "sun").length;
+  const moons = columnBlocks.filter(block => block.type === "moon").length;
+  
+  const nullCells = columnBlocks.filter(block => block.type === null).length;
+  
+  // If there are already more than 3 suns or moons, rule violated
+  if (suns > 3 || moons > 3) return true;
+  
+  // If there's no way to meet the requirement with remaining cells, rule violated
+  if (suns + nullCells < 3 || moons + nullCells < 3) return true;
+  
+  // Check for 3 adjacent same types
+  for (let i = 0; i < GRID_SIZE - 2; i++) {
+    if (
+      columnBlocks[i].type !== null &&
+      columnBlocks[i].type === columnBlocks[i + 1].type &&
+      columnBlocks[i].type === columnBlocks[i + 2].type
+    ) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 export const GameBoard = ({ level }: GameBoardProps) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [initialBlocks, setInitialBlocks] = useState<Block[]>([]);
@@ -47,6 +119,8 @@ export const GameBoard = ({ level }: GameBoardProps) => {
   const [moveCount, setMoveCount] = useState(0);
   const [difficulty, setDifficulty] = useState<string>("easy");
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [hintUsed, setHintUsed] = useState(0);
+  const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
   const handleBlockClick = (index: number) => {
     if (blocks[index].isLocked) {
@@ -65,12 +139,47 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       return;
     }
 
+    // Clone blocks array and update the target block
     const newBlocks = [...blocks];
+    
+    // Save current state for undo
     setMoveHistory([...moveHistory, blocks]);
+    
+    // Update block with selected type
     newBlocks[index] = {
       ...newBlocks[index],
       type: selectedType,
     };
+    
+    // Validate the move against rules
+    const rowIndex = Math.floor(index / GRID_SIZE);
+    const colIndex = index % GRID_SIZE;
+    
+    let ruleViolations: string[] = [];
+    
+    if (checkRowRuleViolation(newBlocks, rowIndex)) {
+      ruleViolations.push(`Row ${rowIndex + 1} violates puzzle rules.`);
+    }
+    
+    if (checkColumnRuleViolation(newBlocks, colIndex)) {
+      ruleViolations.push(`Column ${colIndex + 1} violates puzzle rules.`);
+    }
+    
+    // If rules are violated, show warnings but still allow the move
+    if (ruleViolations.length > 0) {
+      setErrorMessages(ruleViolations);
+      // Display warnings as toasts
+      ruleViolations.forEach(message => {
+        toast({
+          title: "Rule Violation",
+          description: message,
+          variant: "destructive",
+        });
+      });
+    } else {
+      setErrorMessages([]);
+    }
+    
     setBlocks(newBlocks);
     setMoveCount(moveCount + 1);
   };
@@ -83,6 +192,14 @@ export const GameBoard = ({ level }: GameBoardProps) => {
         return false;
       }
     }
+    
+    // Additional check: all rules must be satisfied
+    for (let i = 0; i < GRID_SIZE; i++) {
+      if (checkRowRuleViolation(blocks, i) || checkColumnRuleViolation(blocks, i)) {
+        return false;
+      }
+    }
+    
     return true;
   }, [blocks, solution]);
 
@@ -99,6 +216,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     setBlocks(previousState);
     setMoveHistory(moveHistory.slice(0, -1));
     setMoveCount(moveCount - 1);
+    setErrorMessages([]);
   };
 
   const showHint = () => {
@@ -125,6 +243,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       type: solution[randomIndex].type,
     };
     setBlocks(newBlocks);
+    setHintUsed(hintUsed + 1);
     
     toast({
       title: "Hint Revealed",
@@ -132,14 +251,34 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     });
   };
 
+  const displayRules = () => {
+    toast({
+      title: "Puzzle Rules",
+      description: 
+        "1. Each row must have exactly 3 suns and 3 moons\n" +
+        "2. Each column must have exactly 3 suns and 3 moons\n" +
+        "3. No three adjacent cells in a row or column can be the same type",
+      duration: 5000,
+    });
+  };
+
   useEffect(() => {
     if (checkWinCondition()) {
+      const starsEarned = calculateStars();
       toast({
         title: "Congratulations!",
-        description: `You solved the puzzle in ${moveCount} moves.`,
+        description: `You solved the puzzle in ${moveCount} moves with ${hintUsed} hints! You earned ${starsEarned} stars!`,
+        duration: 5000,
       });
     }
-  }, [checkWinCondition, moveCount]);
+  }, [checkWinCondition, moveCount, hintUsed]);
+
+  const calculateStars = () => {
+    // Calculate stars based on move count and hints used
+    if (hintUsed === 0 && moveCount <= 15) return 3;
+    if (hintUsed <= 1 && moveCount <= 20) return 2;
+    return 1;
+  };
 
   useEffect(() => {
     const fetchLevel = async () => {
@@ -172,6 +311,9 @@ export const GameBoard = ({ level }: GameBoardProps) => {
           title: `Level ${level}`,
           description: `Difficulty: ${newDifficulty.charAt(0).toUpperCase() + newDifficulty.slice(1)}`,
         });
+        
+        // Display rules when loading a level
+        displayRules();
       } catch (error) {
         console.error('Error fetching level:', error);
         toast({
@@ -183,12 +325,19 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     };
 
     fetchLevel();
+    
+    // Reset state when level changes
+    setMoveHistory([]);
+    setMoveCount(0);
+    setHintUsed(0);
+    setErrorMessages([]);
   }, [level]);
 
   const resetBoard = () => {
     setBlocks(initialBlocks);
     setMoveHistory([]);
     setMoveCount(0);
+    setErrorMessages([]);
     toast({
       title: "Board Reset",
       description: "The board has been reset to its initial state.",
@@ -204,6 +353,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       <h1 className="text-3xl font-bold mb-4">
         Level {level} ({difficulty})
       </h1>
+      
       <div className="flex gap-4 mb-4">
         <button
           className={`p-4 rounded-lg ${
@@ -222,7 +372,19 @@ export const GameBoard = ({ level }: GameBoardProps) => {
           <Moon className="w-8 h-8 text-[#B8BCC0]" />
         </button>
       </div>
-      <div className="grid grid-cols-6 gap-2">
+      
+      {errorMessages.length > 0 && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+          <p className="font-bold">Rule Violations:</p>
+          <ul className="list-disc pl-5">
+            {errorMessages.map((message, idx) => (
+              <li key={idx}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      <div className="grid grid-cols-6 gap-2 mb-4">
         {blocks.map((block, index) => (
           <GameBlock
             key={index}
@@ -231,7 +393,8 @@ export const GameBoard = ({ level }: GameBoardProps) => {
           />
         ))}
       </div>
-      <div className="flex justify-between w-full max-w-md mt-4">
+      
+      <div className="flex flex-wrap justify-center gap-2 w-full max-w-md mt-4">
         <button
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 flex items-center gap-2"
           onClick={() => setIsTutorialOpen(true)}
@@ -257,8 +420,17 @@ export const GameBoard = ({ level }: GameBoardProps) => {
         >
           Reset Board
         </button>
+        <button
+          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+          onClick={displayRules}
+        >
+          Show Rules
+        </button>
       </div>
-      <p className="mt-4">Moves: {moveCount}</p>
+      
+      <div className="mt-4 text-center">
+        <p>Moves: {moveCount} | Hints: {hintUsed}</p>
+      </div>
     </div>
   );
 };
