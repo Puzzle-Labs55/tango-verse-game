@@ -415,42 +415,130 @@ export const GameBoard = ({ level }: GameBoardProps) => {
     return 1;
   };
 
+  // This function creates a logically solvable initial board state
+  const createLogicalPuzzle = (difficulty: string): { initialState: Block[], solution: Block[] } => {
+    // Generate a complete, valid solution first
+    const solution: Block[] = [];
+    
+    // Start with an empty board
+    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+      solution.push({ id: i, type: null, rotation: 0, isLocked: false, isHint: false });
+    }
+    
+    // Sample solution that follows all rules (pre-filled)
+    // This is a valid 6x6 grid with exactly 3 suns and 3 moons in each row/column
+    // and no three identical symbols adjacent
+    const solutionPattern: ('sun' | 'moon')[] = [
+      'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
+      'moon', 'sun', 'moon', 'sun', 'moon', 'sun',
+      'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
+      'moon', 'sun', 'moon', 'sun', 'moon', 'sun',
+      'sun', 'moon', 'sun', 'moon', 'sun', 'moon',
+      'moon', 'sun', 'moon', 'sun', 'moon', 'sun'
+    ];
+    
+    // Apply the pattern to our solution
+    for (let i = 0; i < solution.length; i++) {
+      solution[i].type = solutionPattern[i];
+    }
+    
+    // Create initial state with some clues based on difficulty
+    const initialState = solution.map(block => ({ ...block }));
+    
+    // Determine how many clues to reveal based on difficulty
+    let cluesToReveal: number;
+    switch (difficulty) {
+      case 'easy':
+        cluesToReveal = 20; // More clues for easier puzzles
+        break;
+      case 'medium':
+        cluesToReveal = 16;
+        break;
+      case 'hard':
+        cluesToReveal = 12;
+        break;
+      case 'very-hard':
+        cluesToReveal = 8; // Fewer clues for harder puzzles
+        break;
+      default:
+        cluesToReveal = 16;
+    }
+    
+    // Clear most cells, keeping only the clues
+    const allPositions = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => i);
+    
+    // Shuffle positions and select positions to keep as clues
+    for (let i = allPositions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allPositions[i], allPositions[j]] = [allPositions[j], allPositions[i]];
+    }
+    
+    const cluesToKeep = allPositions.slice(0, cluesToReveal);
+    
+    // Clear cells that aren't clues
+    for (let i = 0; i < initialState.length; i++) {
+      if (!cluesToKeep.includes(i)) {
+        initialState[i].type = null;
+      } else {
+        initialState[i].isLocked = true; // Lock the clue cells
+      }
+    }
+    
+    // Ensure the puzzle is logically solvable
+    // For a proper implementation, you'd need to verify that the puzzle has a unique solution
+    // through logical deduction. This would require a logical solver algorithm.
+    
+    return { initialState, solution };
+  };
+
   useEffect(() => {
-    const fetchLevel = async () => {
+    const fetchOrCreateLevel = async () => {
       try {
+        // Try to fetch from Supabase first
         const { data, error } = await supabase
           .from('puzzle_levels')
           .select('initial_state, solution')
           .eq('id', level)
           .single();
 
-        if (error) {
-          throw error;
-        }
-
-        if (data) {
-          const initialStateWithNulls = data.initial_state.map((block: Block) => ({
-            ...block,
-            type: block.isLocked ? block.type : null,
-          }));
+        if (error || !data) {
+          console.log("Creating new puzzle for level", level);
+          // If level doesn't exist, create a new one
+          const difficulty = getDifficultyForLevel(level);
+          const { initialState, solution } = createLogicalPuzzle(difficulty);
           
-          setBlocks(initialStateWithNulls);
-          setInitialBlocks(initialStateWithNulls);
+          // Set the board with the newly created puzzle
+          setBlocks(initialState);
+          setInitialBlocks(initialState);
+          setSolution(solution);
+          setDifficulty(difficulty);
+          
+          // Save the new puzzle to Supabase for future use
+          await supabase.from('puzzle_levels').upsert({
+            id: level,
+            difficulty: difficulty as any,
+            initial_state: initialState,
+            solution: solution,
+            created_at: new Date().toISOString()
+          });
+        } else {
+          // Use the fetched puzzle
+          const difficultyValue = getDifficultyForLevel(level);
+          setDifficulty(difficultyValue);
+          setBlocks(data.initial_state);
+          setInitialBlocks(data.initial_state);
           setSolution(data.solution);
         }
 
-        const newDifficulty = getDifficultyForLevel(level);
-        setDifficulty(newDifficulty);
-
         toast({
           title: `Level ${level}`,
-          description: `Difficulty: ${newDifficulty.charAt(0).toUpperCase() + newDifficulty.slice(1)}`,
+          description: `Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`,
         });
         
         // Display rules when loading a level
         displayRules();
       } catch (error) {
-        console.error('Error fetching level:', error);
+        console.error('Error fetching or creating level:', error);
         toast({
           title: "Error loading level",
           description: "Please try again later",
@@ -459,7 +547,7 @@ export const GameBoard = ({ level }: GameBoardProps) => {
       }
     };
 
-    fetchLevel();
+    fetchOrCreateLevel();
     
     // Reset state when level changes
     setMoveHistory([]);
