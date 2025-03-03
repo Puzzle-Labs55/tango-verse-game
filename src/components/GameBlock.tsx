@@ -1,7 +1,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Block } from "./GameBoard";
+import { Block } from "@/types/gameTypes";
 import { Sun, Moon } from "lucide-react";
 
 interface GameBlockProps {
