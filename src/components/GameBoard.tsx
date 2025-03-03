@@ -548,51 +548,12 @@ export const GameBoard = ({ level, onLevelComplete }: GameBoardProps) => {
       });
     }
     
-    // Create initial state with some clues based on difficulty
-    const initialState = solution.map(block => ({ ...block }));
-    
-    // Determine how many clues to reveal based on difficulty
-    let cluesToReveal: number;
-    switch (difficulty) {
-      case 'easy':
-        cluesToReveal = 20; // More clues for easier puzzles
-        break;
-      case 'medium':
-        cluesToReveal = 16;
-        break;
-      case 'hard':
-        cluesToReveal = 12;
-        break;
-      case 'very-hard':
-        cluesToReveal = 8; // Fewer clues for harder puzzles
-        break;
-      default:
-        cluesToReveal = 16;
-    }
-    
-    // Select strategic positions for clues to ensure a unique solution
-    // We'll keep fixed positions for each difficulty level to ensure
-    // the puzzle is always logically solvable with a unique solution
-    
-    // For easy puzzles, reveal a pattern that makes logical deduction straightforward
-    const fixedPositions: {[key: string]: number[]} = {
-      'easy': [0, 2, 4, 7, 9, 11, 12, 14, 16, 19, 21, 23, 24, 26, 28, 31, 33, 35],
-      'medium': [0, 5, 6, 11, 12, 17, 18, 23, 24, 29, 30, 35],
-      'hard': [0, 7, 14, 21, 28, 35, 5, 10, 15, 20, 25, 30],
-      'very-hard': [0, 7, 14, 21, 28, 35]
-    };
-    
-    const positionsToUse = fixedPositions[difficulty] || fixedPositions.easy;
-    const positionsToKeep = positionsToUse.slice(0, cluesToReveal);
-    
-    // Clear cells that aren't clues
-    for (let i = 0; i < initialState.length; i++) {
-      if (!positionsToKeep.includes(i)) {
-        initialState[i].type = null;
-      } else {
-        initialState[i].isLocked = true; // Lock the clue cells
-      }
-    }
+    // Create initial state with all cells empty - no prefilled clues
+    const initialState = solution.map(block => ({ 
+      ...block,
+      type: null,  // Set all cells to null (empty)
+      isLocked: false  // No locked cells
+    }));
     
     return { initialState, solution };
   };
