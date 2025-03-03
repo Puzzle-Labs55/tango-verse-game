@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import GameBlock from "./GameBlock";
@@ -301,7 +300,7 @@ const GameBoard = () => {
   return (
     <>
       {showTutorial && (
-        <GameTutorial onClose={() => setShowTutorial(false)} />
+        <GameTutorial isOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-game-muted to-white p-4">
         <GameStats 
