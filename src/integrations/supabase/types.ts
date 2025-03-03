@@ -86,30 +86,6 @@ export type Database = {
         }
         Relationships: []
       }
-      puzzle_levels: {
-        Row: {
-          created_at: string
-          difficulty: string
-          id: number
-          initial_state: Json
-          solution: Json
-        }
-        Insert: {
-          created_at?: string
-          difficulty: string
-          id: number
-          initial_state: Json
-          solution: Json
-        }
-        Update: {
-          created_at?: string
-          difficulty?: string
-          id?: number
-          initial_state?: Json
-          solution?: Json
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never

@@ -6,14 +6,11 @@ import { Sun, Moon, X, ArrowRight } from "lucide-react";
 import { Card } from "./ui/card";
 
 interface GameTutorialProps {
-  isOpen: boolean;
   onClose: () => void;
 }
 
-export const GameTutorial: React.FC<GameTutorialProps> = ({ isOpen, onClose }) => {
+export const GameTutorial: React.FC<GameTutorialProps> = ({ onClose }) => {
   const [step, setStep] = useState(0);
-
-  if (!isOpen) return null;
 
   const tutorialSteps = [
     {
